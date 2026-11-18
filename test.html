@@ -25,12 +25,14 @@ const t0 = performance.now(); const L15a = makeLevel(15), t1 = performance.now()
 ok(L15a.moves === L15b.moves && L15a.target === L15b.target && JSON.stringify(L15a.B) === JSON.stringify(L15b.B), 'level 15 is identical every time');
 let sane = true, rowsTxt = [];
 for (let n = 1; n <= 40; n++) {
-  const L = makeLevel(n), F = fullLines(L.B.g);
-  if (!(L.moves >= 10 && L.moves <= 50 && L.target >= 10 && !F.rows.length && !F.cols.length)) sane = false;
+  const L = makeLevel(n), F = withSize(L.size, () => fullLines(L.B.g));
+  if (!(L.moves >= 10 && L.moves <= 50 && L.target >= 10 && !F.rows.length && !F.cols.length && L.B.g.length === L.size)) sane = false;
   const g = L.B.g.flat();
-  rowsTxt.push(`#${String(n).padStart(2)} d=${L.d.toFixed(2)} bot=${L.botWin} try=${L.attempt} ${L.spec.goal.padEnd(5)} moves=${String(L.moves).padStart(2)} target=${String(L.target).padStart(4)} stones=${g.filter(v => v === STONE).length} ice=${g.filter(v => v === ICE).length} gems=${L.B.gem.flat().filter(Boolean).length}`);
+  rowsTxt.push(`#${String(n).padStart(2)} ${L.size}x${L.size} d=${L.d.toFixed(2)} bot=${L.botWin} try=${L.attempt} ${L.spec.goal.padEnd(5)} moves=${String(L.moves).padStart(2)} target=${String(L.target).padStart(4)} stones=${g.filter(v => v === STONE).length} ice=${g.filter(v => v === ICE).length} gems=${L.B.gem.flat().filter(Boolean).length}`);
 }
-ok(sane, 'levels 1-40: moves 10-50, target > 0, no full line at start');
+ok(sane, 'levels 1-40: moves 10-50, target > 0, no full line at start, board matches size');
+ok(N === 8, 'global board size restored to 8 after generating');
+ok(new Set(Array.from({ length: 40 }, (_, i) => makeLevel(i + 11).size)).size >= 4, 'levels use at least 4 different board sizes');
 ok(t1 - t0 < 400, `level generation time ${(t1 - t0).toFixed(0)} ms (< 400)`);
 document.getElementById('out').textContent = out.join('\n') + '\n\n' + rowsTxt.join('\n');
 window.RESULT = out;

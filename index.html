@@ -116,8 +116,8 @@ function newGame() {
   if (lvl) say(`Nivel ${lvl.n}`, cs * 0.9, lvl.n % 10 ? '#cbb6ff' : '#ff9db0', undefined, 1.6);
   if (dailyGift) { say(`🎁 Regalo diario: +1 ${BOOST[dailyGift].icon} ${BOOST[dailyGift].name}`, cs * 0.5, '#1fe08a', by + cs * 5.2, 2.5); dailyGift = null; }
 }
-function startClassic() { mode = 'classic'; lvl = null; hideCard(); newGame(); }
-function startLevel(n) { mode = 'level'; lvl = getLevel(n); hideCard(); $map.classList.remove('on'); newGame(); }
+function startClassic() { mode = 'classic'; lvl = null; N = 8; resize(); hideCard(); newGame(); }
+function startLevel(n) { mode = 'level'; lvl = getLevel(n); N = lvl.size; resize(); hideCard(); $map.classList.remove('on'); newGame(); }
 const goalsMet = () => score >= lvl.target && gemsGot >= lvl.goals.gems && iceGot >= lvl.goals.ice;
 const starsFor = s => lvl.stars.filter(t => s >= t).length;
 function goalsHTML(L, g = 0, i = 0, s = null) {
@@ -457,7 +457,7 @@ function gameOver() {
 function revive() {
   watchRewarded(() => {
     revived = true; isOver = false;
-    for (let R = 2; R < 6; R++) {
+    for (let R = (N >> 1) - 2; R < (N >> 1) + 2; R++) { // middle 4 rows, any board size
       beams.push({ row: true, i: R, life: 1, color: '#1fe08a' });
       for (let C = 0; C < N; C++) if (grid[R][C]) { const h = { r: R, c: C, ...hitCell(board, R, C, true) }; hitFx(h, C * 0.02); if (h.gem) gemsGot++; if (h.ice) iceGot++; }
     }
@@ -515,7 +515,7 @@ function openMap() {
 const TIPS = { stones: '🪨 La piedra no se rompe: completa la línea con ella dentro. Solo la 💣 la destruye.', gems: '💎 Borra la línea de cada gema para recogerla.', ice: '🧊 Borra la línea del hielo para romperlo (el doble aguanta 2).' };
 function levelIntro(n) {
   const L = getLevel(n), tips = ['stones', 'gems', 'ice'].filter(k => k === 'stones' ? L.B.g.flat().includes(STONE) : L.goals[k]).map(k => `<div style="margin-top:6px;font-size:14px">${TIPS[k]}</div>`).join('');
-  showCard({ title: `Nivel ${n}${n % 10 ? '' : ' 👑'}`, big: String(L.moves), sub: `movimientos${goalsHTML(L)}${tips}`,
+  showCard({ title: `Nivel ${n}${n % 10 ? '' : ' 👑'}`, big: String(L.moves), sub: `movimientos · tablero ${L.size}×${L.size}${L.size < 8 ? ' (¡poco espacio!)' : L.size > 8 ? ' (líneas más largas)' : ''}${goalsHTML(L)}${tips}`,
     buttons: [{ label: '▶ Jugar', cls: 'b1', fn: () => startLevel(n) }, { label: 'Volver', fn: () => {} }] });
 }
 document.getElementById('path').onclick = e => { const b = e.target.closest('.node'); if (!b || b.disabled) return; ensureAudio(); tone(600, 0.06, 'sine', 0.1, 0, 900); levelIntro(+b.dataset.n); };
@@ -539,7 +539,7 @@ const orbs = Array.from({ length: 26 }, () => ({ x: Math.random(), y: Math.rando
 function resize() {
   DPR = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight;
   cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  by = Math.max(H * 0.15, 90); cs = Math.floor(Math.min(W * 0.9 / N, (H - by - 70) / 12)); bx = (W - cs * N) / 2; trayY = by + cs * N + cs * 0.9;
+  by = Math.max(H * 0.15, 90); cs = Math.floor(Math.min(W * 0.9 / N, (H - by - 70) / (N + 4), (H - by - 70) / 12 * 1.15)); bx = (W - cs * N) / 2; trayY = by + cs * N + cs * 0.9;
   $bar.style.top = (trayY + cs * 3.1) + 'px'; $pause.style.top = Math.max(4, by * 0.15 - 21) + 'px'; $hint.style.top = (trayY + cs * 2.45) + 'px';
   sprites.clear();
 }

@@ -1,6 +1,9 @@
 'use strict';
 // Prisma Pop core: board rules, scoring, piece dealing, level generator and validation bot. Pure logic, no DOM.
-const N = 8, STONE = 8, ICE = 9, NCOL = 7;
+// N is the current board size; adventure levels change it (6-10), every rule below reads it at call time
+let N = 8;
+const STONE = 8, ICE = 9, NCOL = 7;
+function withSize(n, fn) { const old = N; N = n; try { return fn(); } finally { N = old; } }
 
 // ---------- shapes ----------
 const BASE = ['#', '##', '###', '####', '#####', '##|##', '###|###|###', '#.|##', '#..|###', '###|.#.', '.##|##.', '##.|.##', '##|##|##', '#..|#..|###'];
@@ -99,6 +102,8 @@ function levelLayout(n, attempt = 0) {
     spec = { goal, stones: Math.round(d * 5 + R() * 2), prefill: 2 + Math.round(R() * 6),
       gems: goal === 'gems' || goal === 'mix' ? 3 + Math.round(d * 4) : 0, ice: goal === 'ice' || goal === 'mix' ? 3 + Math.round(d * 5) : 0 };
   }
+  const area = N * N / 64; // obstacles scale with the board
+  if (n > TUTORIAL.length) ['stones', 'prefill', 'gems', 'ice'].forEach(k => spec[k] = Math.round(spec[k] * area));
   spec.stones = Math.round(spec.stones * ease); spec.prefill = Math.round(spec.prefill * ease);
   if (attempt) { spec.ice = Math.max(spec.ice ? 2 : 0, Math.round(spec.ice * ease)); spec.gems = Math.max(spec.gems ? 2 : 0, Math.round(spec.gems * ease)); }
   const B = newBoard();
@@ -162,8 +167,12 @@ function botPlay(B0, rnd, d, cap, goals) {
 const quant = (a, q) => { const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.max(0, Math.floor(q * s.length)))]; };
 const round10 = x => Math.max(10, Math.round(x / 10) * 10);
 // moves and target come from bot runs: share w of runs must win (easy 85 % to boss 30 %)
+// board size per level: tutorial 8x8, then from the seed (small = less room, big = longer lines)
+const SIZES = [6, 7, 8, 8, 9, 10];
+const levelSize = n => n <= TUTORIAL.length ? 8 : SIZES[mulberry32(n * 3571 + 5)() * SIZES.length | 0];
+const makeLevel = (n, runs) => withSize(levelSize(n), () => ({ ...buildLevel(n, runs), size: N }));
 // validation: the bot must beat the goal in at least half its runs, otherwise the layout is regenerated easier
-function makeLevel(n, runs = 14) {
+function buildLevel(n, runs = 14) {
   const CAP = 45, d = levelDiff(n), pd = d * 0.6;
   let L, res, goals, share = 0, attempt = 0;
   for (; attempt < 5; attempt++) {
