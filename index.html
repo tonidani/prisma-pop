@@ -43,7 +43,7 @@ button:active{transform:translateY(4px);--bev:inset 0 4px rgba(0,0,0,.3)}
 @keyframes got{30%{transform:scale(1.35) rotate(-8deg)}}
 #bar.nudge button{animation:pulse .5s steps(2) infinite}
 .logo{font-size:24px!important}
-.goals{display:flex;justify-content:center;gap:14px;font-size:22px;font-weight:600;margin:6px 0}
+.goals{list-style:none;display:table;text-align:left;padding:0;margin:10px auto 4px;font-size:17px;font-weight:600}.goals li{margin:5px 0}.goals li span{display:inline-block;width:22px;color:#ffd60a}.goals li.ok,.goals li.ok span{color:#1fe08a}.goals b{color:#fff}
 #map{position:fixed;inset:0;z-index:6;display:none;overflow:hidden;background:#07031a}
 #space{position:absolute;inset:0;touch-action:none}
 .mhead span{white-space:nowrap}.zb{margin-left:auto;display:flex;gap:12px}.zb button{width:40px;padding:6px 0;font-size:18px}
@@ -147,9 +147,11 @@ function startClassic() { mode = 'classic'; lvl = null; N = 8; resize(); hideCar
 function startLevel(n) { mode = 'level'; lvl = getLevel(n); N = lvl.size; resize(); hideCard(); $map.classList.remove('on'); newGame(); }
 const goalsMet = () => score >= lvl.target && gemsGot >= lvl.goals.gems && iceGot >= lvl.goals.ice;
 const starsFor = s => lvl.stars.filter(t => s >= t).length;
+// level requirements as a bulleted list; during play (s given) each line shows progress and turns green with ✔ when met
 function goalsHTML(L, g = 0, i = 0, s = null) {
-  const p = (got, need) => s === null ? need : `${Math.min(got, need)}/${need}`; // intro shows only what is needed
-  return `<div class="goals"><span>🎯 ${s === null ? '' : s + '/'}${L.target}</span>${L.goals.gems ? `<span>💎 ${p(g, L.goals.gems)}</span>` : ''}${L.goals.ice ? `<span>🧊 ${p(i, L.goals.ice)}</span>` : ''}</div>`;
+  const row = (icon, txt, need, got) => { const ok = s !== null && got >= need;
+    return `<li${ok ? ' class="ok"' : ''}><span>${ok ? '✔' : '•'}</span>${icon} ${txt}${s === null ? '' : ` <b>${Math.min(got, need)}/${need}</b>`}</li>`; };
+  return `<ul class="goals">${row('🎯', `Consigue ${L.target} puntos`, L.target, s)}${L.goals.gems ? row('💎', `Recoge ${L.goals.gems} gemas`, L.goals.gems, g) : ''}${L.goals.ice ? row('🧊', `Rompe ${L.goals.ice} hielos`, L.goals.ice, i) : ''}</ul>`;
 }
 
 // ---------- audio / haptics ----------
@@ -712,7 +714,7 @@ function frame(now) {
     pill(Math.max(bx, 68), by * 0.15, `Nivel ${lvl.n}`, lvl.n % 10 ? '#cbb6ff' : '#ff9db0', 'left');
     const st = starsFor(Math.round(shownScore));
     pill(bx + cs * N, by * 0.15, `${'⭐'.repeat(st)}${'☆'.repeat(3 - st)} ${Math.round(shownScore)}/${lvl.target}`, score >= lvl.target ? '#1fe08a' : '#ffd60a', 'right');
-    const g = [lvl.goals.gems && `💎 ${Math.min(gemsGot, lvl.goals.gems)}/${lvl.goals.gems}`, lvl.goals.ice && `🧊 ${Math.min(iceGot, lvl.goals.ice)}/${lvl.goals.ice}`].filter(Boolean).join('    ');
+    const g = [lvl.goals.gems && `${gemsGot >= lvl.goals.gems ? '✔ ' : ''}💎 ${Math.min(gemsGot, lvl.goals.gems)}/${lvl.goals.gems}`, lvl.goals.ice && `${iceGot >= lvl.goals.ice ? '✔ ' : ''}🧊 ${Math.min(iceGot, lvl.goals.ice)}/${lvl.goals.ice}`].filter(Boolean).join('    ');
     ctx.font = `700 ${Math.round(cs * 0.42)}px Fredoka, system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
     ctx.fillText(g || (streak > 1 ? '' : 'movimientos'), W / 2, by - 24);
   } else {
