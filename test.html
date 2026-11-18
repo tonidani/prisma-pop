@@ -2,7 +2,7 @@
 <meta charset="utf-8">
 <title>Prisma Pop: tests</title>
 <pre id="out" style="font:14px monospace"></pre>
-<script src="core.js"></script>
+<script src="core.js?v=5"></script>
 <script>
 const out = [], ok = (cond, name) => out.push((cond ? 'OK   ' : 'FAIL ') + name);
 // stone: row with a stone completes without it, stone stays
@@ -32,14 +32,17 @@ ok(L15a.moves === L15b.moves && L15a.target === L15b.target && JSON.stringify(L1
 let sane = true, rowsTxt = [];
 for (let n = 1; n <= 40; n++) {
   const L = makeLevel(n), F = withSize(L.size, () => fullLines(L.B.g));
-  if (!(L.moves >= 10 && L.moves <= 50 && L.target >= 10 && !F.rows.length && !F.cols.length && L.B.g.length === L.size)) sane = false;
+  if (!(L.moves >= 8 && L.moves <= 50 && L.target >= 10 && !F.rows.length && !F.cols.length && L.B.g.length === L.size)) sane = false;
   const g = L.B.g.flat();
   rowsTxt.push(`#${String(n).padStart(2)} ${L.size}x${L.size} ${L.spec.shape.padEnd(7)} d=${L.d.toFixed(2)} bot=${L.botWin} try=${L.attempt} ${L.spec.goal.padEnd(5)} moves=${String(L.moves).padStart(2)} target=${String(L.target).padStart(4)} stones=${g.filter(v => v === STONE).length} ice=${g.filter(v => v === ICE).length} gems=${L.B.gem.flat().filter(Boolean).length}`);
 }
 ok(sane, 'levels 1-40: moves 10-50, target > 0, no full line at start, board matches size');
 ok(N === 8, 'global board size restored to 8 after generating');
-const hard = Array.from({ length: 80 }, (_, i) => makeLevel(i + 1)).filter(L => L.botWin < 0.29).map(L => L.n);
-ok(!hard.length, 'levels 1-80: bot wins at least ~30% of runs' + (hard.length ? ' — too hard: ' + hard.join(',') : ''));
+const L80 = Array.from({ length: 80 }, (_, i) => makeLevel(i + 1)), hard = L80.filter(L => L.share < 0.3).map(L => L.n);
+ok(!hard.length, 'levels 1-80: bot reaches the goal in at least 30% of runs (never impossible)' + (hard.length ? ' — too hard: ' + hard.join(',') : ''));
+const plain = L80.filter(L => L.n > 10 && L.size === 8 && L.spec.shape === 'square').map(L => L.n);
+ok(!plain.length, 'world 2+: no plain 8x8 square board' + (plain.length ? ' — plain: ' + plain.join(',') : ''));
+ok(new Set(L80.slice(4, 10).map(L => L.size + L.spec.shape)).size >= 4, 'world 1 already shows different boards (levels 5-10)');
 const shapes = Array.from({ length: 60 }, (_, i) => makeLevel(i + 11));
 ok(new Set(shapes.map(L => L.spec.shape)).size >= 4, 'levels use at least 4 board shapes: ' + [...new Set(shapes.map(L => L.spec.shape))].join(', '));
 ok(shapes.every(L => L.B.g.every(row => row.some(v => v !== VOID)) && L.B.g.flat().filter(v => v === VOID).length < L.size * L.size / 2), 'shapes: every row playable, void under half the board');

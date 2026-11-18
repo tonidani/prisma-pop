@@ -83,16 +83,17 @@ function dealTray(g, rnd, d) {
 
 // ---------- levels ----------
 // 1-10 teach one thing at a time; from 11 on everything comes from the seed
+// from level 5 the tutorial also introduces board sizes and shapes
 const TUTORIAL = [
   { goal: 'score', prefill: 0 }, { goal: 'score', prefill: 6 }, { goal: 'score', prefill: 10 },
-  { goal: 'score', stones: 2, prefill: 4 }, { goal: 'score', stones: 4, prefill: 6 },
-  { goal: 'gems', gems: 3, prefill: 4 }, { goal: 'gems', gems: 5, stones: 2, prefill: 4 },
-  { goal: 'ice', ice: 4, prefill: 2 }, { goal: 'ice', ice: 6, stones: 2, prefill: 2 },
-  { goal: 'mix', gems: 4, ice: 4, stones: 3, prefill: 2 },
+  { goal: 'score', stones: 2, prefill: 4 }, { goal: 'score', stones: 3, prefill: 5, size: 7 },
+  { goal: 'gems', gems: 3, prefill: 4, shape: 'corners' }, { goal: 'gems', gems: 5, stones: 2, prefill: 5, size: 9 },
+  { goal: 'ice', ice: 4, prefill: 3, shape: 'hole' }, { goal: 'ice', ice: 5, stones: 2, prefill: 2, size: 7 },
+  { goal: 'mix', gems: 4, ice: 4, stones: 3, prefill: 3, size: 9, shape: 'cross' },
 ];
 // sawtooth: every 10th a boss, every 5th hard, the one after a boss easy; slow upward trend
 function levelDiff(n) {
-  const tier = Math.min(1, n / 80), saw = n % 10 === 0 ? 1 : n % 5 === 0 ? 0.65 : n % 10 === 1 && n > 1 ? 0 : 0.3;
+  const tier = Math.min(1, n / 50), saw = n % 10 === 0 ? 1 : n % 5 === 0 ? 0.65 : n % 10 === 1 && n > 1 ? 0 : 0.3;
   return Math.min(1, 0.1 + tier * 0.5 + saw * 0.4);
 }
 // attempt > 0: same level made easier (fewer obstacles) because the bot found the previous one too hard
@@ -105,7 +106,8 @@ function levelLayout(n, attempt = 0) {
     spec = { goal, stones: Math.round(d * 5 + R() * 2), prefill: 2 + Math.round(R() * 6),
       gems: goal === 'gems' || goal === 'mix' ? 3 + Math.round(d * 4) : 0, ice: goal === 'ice' || goal === 'mix' ? 3 + Math.round(d * 5) : 0 };
   }
-  spec.shape = attempt >= 3 ? 'square' : levelShape(n); // still too hard after 3 tries: drop the shape
+  // still too hard after 3 tries: plainest board allowed (world 2+ never plain 8x8, so corners there)
+  spec.shape = attempt >= 3 ? (n > TUTORIAL.length && N === 8 ? 'corners' : 'square') : levelShape(n);
   const B = newBoard();
   if (spec.shape !== 'square') for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (MASKS[spec.shape](r, c)) B.g[r][c] = VOID;
   const area = (N * N - B.g.flat().filter(v => v === VOID).length) / 64; // obstacles scale with the playable area
@@ -180,14 +182,16 @@ const MASKS = {
   hole: (r, c) => { const s = N >= 9 ? (N & 1 ? 3 : 2) : (N & 1 ? 1 : 2), a = (N - s) >> 1; return r >= a && r < a + s && c >= a && c < a + s; },
   diamond: (r, c) => Math.abs(r - (N - 1) / 2) + Math.abs(c - (N - 1) / 2) > (N - 1) / 2 + 1.5,
 };
+// from world 2 on no board is the plain 8x8 square
 function levelShape(n) {
-  if (n <= TUTORIAL.length) return 'square';
-  const opts = ['square', 'square', 'corners', 'hole', ...(N >= 7 ? ['cross'] : []), ...(N >= 9 ? ['diamond'] : [])];
-  return opts[mulberry32(n * 2203 + 17)() * opts.length | 0];
+  if (n <= TUTORIAL.length) return TUTORIAL[n - 1].shape || 'square';
+  const opts = ['square', 'corners', 'hole', ...(N >= 7 ? ['cross', 'cross'] : []), ...(N >= 9 ? ['diamond'] : [])];
+  const s = opts[mulberry32(n * 2203 + 17)() * opts.length | 0];
+  return s === 'square' && N === 8 ? 'corners' : s;
 }
-// board size per level: tutorial 8x8, then from the seed (small = less room, big = longer lines)
-const SIZES = [6, 7, 8, 8, 9, 10];
-const levelSize = n => n <= TUTORIAL.length ? 8 : SIZES[mulberry32(n * 3571 + 5)() * SIZES.length | 0];
+// board size per level: tutorial as written, then from the seed (small = less room, big = longer lines)
+const SIZES = [6, 7, 7, 8, 9, 9, 10];
+const levelSize = n => n <= TUTORIAL.length ? TUTORIAL[n - 1].size || 8 : SIZES[mulberry32(n * 3571 + 5)() * SIZES.length | 0];
 const makeLevel = (n, runs) => withSize(levelSize(n), () => ({ ...buildLevel(n, runs), size: N }));
 // validation: the bot must beat the goal in at least half its runs, otherwise the layout is regenerated easier
 function buildLevel(n, runs = 14) {
@@ -200,12 +204,13 @@ function buildLevel(n, runs = 14) {
     share = res.filter(x => isFinite(x.objAt)).length / runs;
     if (share >= 0.5) break;
   }
-  const obj = goals.gems || goals.ice, w = Math.min(0.85 - d * 0.55, share - 0.01);
-  let moves = obj ? quant(res.map(x => x.objAt), w) : 14 + Math.round(d * 8) + Math.min(10, n / 15 | 0);
-  moves = Math.max(10, Math.min(CAP, Math.ceil((isFinite(moves) ? moves : CAP) * (1.15 - d * 0.1))));
+  // harder since 18-11-2026: bot target 70 % easy → ~25 % boss, almost no spare moves
+  const obj = goals.gems || goals.ice, w = Math.min(0.72 - d * 0.48, share - 0.01);
+  let moves = obj ? quant(res.map(x => x.objAt), w) : 12 + Math.round(d * 6) + Math.min(8, n / 20 | 0);
+  moves = Math.max(8, Math.min(CAP, Math.ceil((isFinite(moves) ? moves : CAP) * (1.05 - d * 0.08))));
   const atM = res.map(x => x.scores[moves - 1]);
   const target = obj ? Math.max(round10(quant(atM, 0.15)), round10(moves * 5)) : round10(quant(atM, 1 - w));
-  return { n, d, moves, target, goals, B: L.B, spec: L.spec, stars: [target, round10(target * 1.35), round10(target * 1.75)], botWin: +w.toFixed(2), attempt: Math.min(attempt, 6) };
+  return { n, d, moves, target, goals, B: L.B, spec: L.spec, stars: [target, round10(target * 1.35), round10(target * 1.75)], botWin: +w.toFixed(2), share: +share.toFixed(2), attempt: Math.min(attempt, 6) };
 }
 
 if (typeof module !== 'undefined') module.exports = { N, STONE, ICE, SHAPES, fits, fullLines, hitCell, applyMove, newBoard, makeLevel, levelLayout };
