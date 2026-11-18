@@ -91,10 +91,20 @@ const TUTORIAL = [
   { goal: 'ice', ice: 4, prefill: 3, shape: 'hole' }, { goal: 'ice', ice: 5, stones: 2, prefill: 2, size: 7 },
   { goal: 'mix', gems: 4, ice: 4, stones: 3, prefill: 3, size: 9, shape: 'cross' },
 ];
-// sawtooth: every 10th a boss, every 5th hard, the one after a boss easy; slow upward trend
+// adventure tree: sector s holds levels s*10+1..s*10+10; three routes of 3 planets (easy 1-3, normal 4-6, hard 7-9) that rejoin at the boss (10)
+const sectorOf = n => (n - 1) / 10 | 0;
+const routeOf = n => { const k = (n - 1) % 10; return k === 9 ? -1 : k / 3 | 0; }; // -1 = boss
+const nextInRoute = n => { const k = (n - 1) % 10; return k === 9 ? null : k % 3 === 2 ? sectorOf(n) * 10 + 10 : n + 1; };
+function isOpen(n, done) { // done(n): level n already won
+  const s = sectorOf(n), k = (n - 1) % 10;
+  if (k === 9) return [3, 6, 9].some(j => done(s * 10 + j)); // any finished route opens the boss
+  if (k % 3) return done(n - 1);
+  return s === 0 || done(s * 10); // route starts open once the previous boss falls
+}
+// difficulty: slow upward trend per sector, plus the route class; each planet inside a route a bit harder
 function levelDiff(n) {
-  const tier = Math.min(1, n / 50), saw = n % 10 === 0 ? 1 : n % 5 === 0 ? 0.65 : n % 10 === 1 && n > 1 ? 0 : 0.3;
-  return Math.min(1, 0.1 + tier * 0.5 + saw * 0.4);
+  const tier = Math.min(1, n / 50), r = routeOf(n), extra = r < 0 ? 0.4 : [0, 0.12, 0.26][r] + ((n - 1) % 10 % 3) * 0.04;
+  return Math.min(1, 0.1 + tier * 0.5 + extra);
 }
 // attempt > 0: same level made easier (fewer obstacles) because the bot found the previous one too hard
 function levelLayout(n, attempt = 0) {
@@ -213,4 +223,4 @@ function buildLevel(n, runs = 14) {
   return { n, d, moves, target, goals, B: L.B, spec: L.spec, stars: [target, round10(target * 1.35), round10(target * 1.75)], botWin: +w.toFixed(2), share: +share.toFixed(2), attempt: Math.min(attempt, 6) };
 }
 
-if (typeof module !== 'undefined') module.exports = { N, STONE, ICE, SHAPES, fits, fullLines, hitCell, applyMove, newBoard, makeLevel, levelLayout };
+if (typeof module !== 'undefined') module.exports = { N, STONE, ICE, SHAPES, fits, fullLines, hitCell, applyMove, newBoard, makeLevel, levelLayout, isOpen, nextInRoute, routeOf };

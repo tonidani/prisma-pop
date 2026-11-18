@@ -142,17 +142,20 @@ const WORLDS = [
   { name: 'Océano Zafiro', hue: 215, bg: ['#11507e', '#041a33'], line: 'Las perlas del océano se han vuelto grises. ¡Vamos a recuperarlas!' },
   { name: 'Desierto Ámbar', hue: 38, bg: ['#8d5c14', '#331f04'], line: 'Arena por todas partes… pero las gemas brillan más que nunca.' },
 ];
-const worldIdx = n => Math.floor((n - 1) / 10);
-const worldOf = n => WORLDS[worldIdx(n) % WORLDS.length];
-const worldName = n => { const lap = Math.floor(worldIdx(n) / WORLDS.length); return worldOf(n).name + (lap ? ' ' + ['II', 'III', 'IV', 'V', 'VI'][Math.min(4, lap - 1)] : ''); };
+// worldIdx = sector (one per 10 levels); each planet gets its own theme: the boss keeps the sector's, each route another one
+const worldIdx = n => sectorOf(n);
+const themeIdx = n => { const r = routeOf(n), s = sectorOf(n); return (r < 0 ? s : s * 3 + r + 1) % WORLDS.length; };
+const worldOf = n => WORLDS[themeIdx(n)];
+const worldName = n => worldOf(n).name;
 
 const STORY = {
   intro: [
     { who: 'prismi', mood: 'happy', text: '¡Hola! Soy <b>Prismi</b>, la gema más brillante del reino. 💎' },
     { who: 'grison', mood: 'angry', text: '¡Ja, ja, ja! Soy <b>Grisón</b>. He llenado el mundo de piedra gris. ¡Los colores son una pesadez!' },
     { who: 'prismi', mood: 'worried', text: '¡Oh, no! Si completamos líneas en los tableros, los colores volverán. ¿Me ayudas?' },
+    { who: 'prismi', mood: 'wow', text: 'Viajaremos de <b>planeta en planeta</b>. En cada sector eliges ruta: 🟢 fácil, 🟡 normal o 🔴 difícil. ¡Todas llevan a Grisón! 🚀' },
   ],
-  world: n => [{ who: 'prismi', mood: 'wow', text: `¡Bienvenido a <b>${worldName(n)}</b>! ${worldOf(n).line}` }],
+  world: n => [{ who: 'prismi', mood: 'wow', text: `¡Aterrizamos en el planeta <b>${worldName(n)}</b>! ${worldOf(n).line}` }],
   boss: n => [
     { who: 'grison', mood: 'angry', text: ['¡Este tablero es mío! No pasarás de aquí.', '¡Mis piedras son indestructibles!', '¡Te quedarás sin movimientos, ja, ja!', '¡Nadie ha superado nunca mi trampa!'][(n / 10 - 1) % 4] },
     { who: 'prismi', mood: 'happy', text: '¡No le tenemos miedo! ¡A por él! 💪' },

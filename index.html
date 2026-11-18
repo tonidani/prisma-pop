@@ -10,8 +10,8 @@
 /* pixel look: square corners, 4px "notched" borders made of 4 offset shadows, flat colours with inset bevels */
 html,body{margin:0;height:100%;background:#12062b;overflow:hidden;touch-action:none;font-family:Fredoka,system-ui,sans-serif;color:#fff;user-select:none;-webkit-user-select:none}
 canvas{display:block}
-.card h2,.big,.node,#cTitle{font-family:"Press Start 2P",monospace;font-weight:400}
-.px,.world{image-rendering:crisp-edges;image-rendering:pixelated}
+.card h2,.big,#cTitle,.pt{font-family:"Press Start 2P",monospace;font-weight:400}
+.px{image-rendering:crisp-edges;image-rendering:pixelated}
 .px{display:block}
 .card,button,.bubble,.wtitle,.b-say{--bd:#0d0626;--bev:inset 0 -4px rgba(0,0,0,.3),inset 0 4px rgba(255,255,255,.22);box-shadow:0 -4px var(--bd),0 4px var(--bd),-4px 0 var(--bd),4px 0 var(--bd),var(--bev)}
 .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,2,20,.8);z-index:5}
@@ -44,15 +44,15 @@ button:active{transform:translateY(4px);--bev:inset 0 4px rgba(0,0,0,.3)}
 #bar.nudge button{animation:pulse .5s steps(2) infinite}
 .logo{font-size:24px!important}
 .goals{display:flex;justify-content:center;gap:14px;font-size:22px;font-weight:600;margin:6px 0}
-#map{position:fixed;inset:0;z-index:6;display:none;overflow-y:auto;background:#0d0626;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+#map{position:fixed;inset:0;z-index:6;display:none;overflow:hidden;background:#07031a}
+#space{position:absolute;inset:0;touch-action:none}
+.mhead span{white-space:nowrap}.zb{margin-left:auto;display:flex;gap:12px}.zb button{width:40px;padding:6px 0;font-size:18px}
+.legend{position:absolute;top:84px;left:0;right:0;text-align:center;font-size:13px;opacity:.85;pointer-events:none;text-shadow:2px 2px 0 #000}
+#pinfo{position:absolute;left:16px;right:16px;bottom:20px;max-width:420px;margin:0 auto;background:#1d0f4a;--bd:#cbb6ff;box-shadow:0 -4px var(--bd),0 4px var(--bd),-4px 0 var(--bd),4px 0 var(--bd),inset 0 -4px #0d0626;padding:14px 16px;text-align:center}
+#pinfo:empty{display:none}.pt{font-size:12px;line-height:1.6;color:#ffd60a}.pr{font-size:15px;margin-top:6px}#pinfo button{margin-top:12px;padding:11px}
 #map.on{display:block}
-.mhead{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:18px;padding:12px 18px;background:#1d0f4a;border-bottom:4px solid #0d0626;font-size:22px;font-weight:700}
+.mhead{position:relative;z-index:3;display:flex;align-items:center;gap:18px;padding:12px 18px;background:#1d0f4a;border-bottom:4px solid #0d0626;font-size:22px;font-weight:700}
 .mhead button{width:auto;margin:0;padding:8px 14px;font-size:16px}
-#path{position:relative;padding-bottom:80px}
-.world{position:relative;display:flex;flex-direction:column;align-items:center;gap:30px;padding:118px 16px 50px;overflow:hidden;background-size:100% 100%;border-top:4px solid #0d0626}
-.wtitle{position:absolute;top:20px;left:50%;transform:translateX(-50%);margin:0;padding:7px 16px;background:#1d0f4a;--bd:#fff;font-size:17px;white-space:nowrap;z-index:2;text-shadow:2px 2px 0 #000}
-#pathSvg{position:absolute;left:0;top:0;pointer-events:none;z-index:1}
-.avatar{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);margin-bottom:-6px;pointer-events:none;animation:bob 1s steps(2) infinite}
 @keyframes bob{50%{translate:0 -4px}}
 #cArt .px{margin:-12px auto 6px;animation:bob 1.2s steps(2) infinite}
 #story{position:fixed;inset:0;z-index:9;display:none;align-items:flex-end;justify-content:center;background:rgba(5,2,20,.72);padding:16px 16px 48px}
@@ -71,11 +71,6 @@ button:active{transform:translateY(4px);--bev:inset 0 4px rgba(0,0,0,.3)}
 @keyframes jump{30%{transform:translateY(-16px)}60%{transform:translateY(0)}}
 .b-say{position:absolute;right:100%;top:6px;margin-right:8px;background:#fff;color:#2a1460;--bd:#1d0f4a;--bev:0 0 #0000;font-weight:700;font-size:13px;padding:6px 10px;white-space:nowrap;opacity:0;transform:scale(.5);transform-origin:right bottom;transition:.15s steps(3)}
 .b-say.on{opacity:1;transform:none}
-.node{position:relative;z-index:2;width:60px;height:60px;margin:0;padding:0;font-size:16px;background:#6a3cf0;--bd:#fff;flex:none}
-.node.boss{width:76px;height:76px;font-size:24px;background:#d6264a;--bd:#ffd60a}
-.node.cur{animation:pulse .8s steps(2) infinite}
-.node.lock{filter:grayscale(1);opacity:.55;cursor:default;--bd:#0d0626}
-.node small{font-family:Fredoka,system-ui;position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);font-size:13px;white-space:nowrap;letter-spacing:1px}
 #pause{position:fixed;left:14px;width:40px;height:40px;margin:0;padding:0;font-size:18px;z-index:4;background:#4a2596}
 #hint{position:fixed;left:0;right:0;text-align:center;font-weight:600;color:#ffd60a;z-index:3;pointer-events:none;text-shadow:2px 2px 0 #000}
 </style>
@@ -93,7 +88,7 @@ button:active{transform:translateY(4px);--bev:inset 0 4px rgba(0,0,0,.3)}
   <div id="cNear" class="nm"></div>
   <div id="cBtns"></div>
 </div></div>
-<div id="map"><div class="mhead"><button class="b2" id="mapBack">← Menú</button><span>🗺️ Aventura</span></div><div id="path"></div></div>
+<div id="map"><canvas id="space"></canvas><div class="mhead"><button class="b2" id="mapBack">←</button><span>🚀 Aventura</span><span class="zb"><button id="zOut" aria-label="Alejar">−</button><button id="zIn" aria-label="Acercar">+</button><button id="zHome" aria-label="Ir al siguiente planeta">◎</button></span></div><div class="legend">🟢 Fácil · 🟡 Normal · 🔴 Difícil · 👑 Jefe</div><div id="pinfo"></div></div>
 <div id="story"></div>
 <div id="buddy"><div class="b-say"></div><div class="b-art"></div></div>
 <div class="ov" id="ad"><div class="card">
@@ -101,8 +96,8 @@ button:active{transform:translateY(4px);--bev:inset 0 4px rgba(0,0,0,.3)}
   <div class="muted">Simulación: aquí va el SDK real (AdMob / Poki / CrazyGames)</div>
   <div class="big" id="adCount">3</div>
 </div></div>
-<script src="core.js?v=7"></script>
-<script src="art.js?v=7"></script>
+<script src="core.js?v=8"></script>
+<script src="art.js?v=8"></script>
 <script>
 'use strict';
 // ---------- storage & analytics ----------
@@ -133,7 +128,7 @@ let landT = emptyGrid();
 let mode = 'classic', lvl = null, movesLeft = 0, gemsGot = 0, iceGot = 0, plusUsed = false, won = false;
 const S = { games: 0, start: Date.now() };
 const levelCache = new Map(), getLevel = n => levelCache.get(n) || levelCache.set(n, makeLevel(n)).get(n);
-let unlocked = +ls('pp_level') || 1, starsMap = {}; try { starsMap = JSON.parse(ls('pp_stars')) || {}; } catch (e) {}
+let starsMap = {}; try { starsMap = JSON.parse(ls('pp_stars')) || {}; } catch (e) {}
 // difficulty: classic grows with score, adventure comes from the level number; never tied to ad value
 const difficulty = () => mode === 'level' ? lvl.d * 0.6 : Math.min(1, score / 4000);
 function newTray() { tray = dealTray(grid, Math.random, difficulty()); trayIn = 0; }
@@ -468,7 +463,7 @@ function nearLevel() {
 }
 function endButtons(extra) {
   const lv = mode === 'level';
-  return [...extra, { label: lv ? 'Reintentar' : 'Jugar de nuevo', fn: () => withAd(replay) }, { label: lv ? '🗺️ Mapa' : '🏠 Menú', cls: 'b3', fn: lv ? openMap : showMenu }];
+  return [...extra, { label: lv ? 'Reintentar' : 'Jugar de nuevo', fn: () => withAd(replay) }, { label: lv ? '🚀 Mapa' : '🏠 Menú', cls: 'b3', fn: lv ? () => openMap() : showMenu }];
 }
 function gameOver() {
   if (isOver || won || tray.some(t => t && fitsAnywhere(grid, t.cells))) return;
@@ -523,10 +518,10 @@ function levelWon() {
 function victory() {
   const n = lvl.n, st = starsFor(score);
   if (st > (starsMap[n] || 0)) { starsMap[n] = st; ls('pp_stars', JSON.stringify(starsMap)); }
-  if (n >= unlocked) { unlocked = n + 1; ls('pp_level', unlocked); }
   log('level_win', { level: n, score, stars: st, moves_left: movesLeft, plus_used: plusUsed ? 1 : 0, revived: revived ? 1 : 0 });
-  const card = () => showCard({ title: `¡Nivel ${n} superado!`, art: prismiPx('wow', 84), big: '⭐'.repeat(st) + '☆'.repeat(3 - st), sub: `Puntuación: ${score}`,
-    buttons: [{ label: `Nivel ${n + 1} ▶`, cls: 'b1', fn: () => withAd(() => (n + 1) % 10 === 1 || (n + 1) % 10 === 0 ? levelIntro(n + 1) : startLevel(n + 1)) }, { label: '🗺️ Mapa', cls: 'b3', fn: openMap }] });
+  const nx = nextInRoute(n);
+  const card = () => showCard({ title: `¡Planeta ${n} superado!`, art: prismiPx('wow', 84), big: '⭐'.repeat(st) + '☆'.repeat(3 - st), sub: `Puntuación: ${score}`,
+    buttons: [...(nx ? [{ label: routeOf(nx) < 0 ? '👑 Al jefe ▶' : `Planeta ${nx} ▶`, cls: 'b1', fn: () => withAd(() => routeOf(nx) < 0 ? levelIntro(nx) : startLevel(nx)) }] : []), { label: nx ? '🚀 Mapa' : '🚀 Elegir nueva ruta', cls: nx ? 'b3' : 'b1', fn: () => openMap() }] });
   n % 10 === 0 ? story('bw' + n, STORY.bossWin(n), card) : card();
 }
 // ---------- in-game buddy: Prismi sits on the board corner and reacts ----------
@@ -572,42 +567,21 @@ function story(id, lines, done = () => {}) {
 function showMenu() {
   isOver = true; $map.classList.remove('on');
   showCard({ title: 'Prisma Pop', logo: true, art: prismiPx('happy', 104), sub: 'Elige modo de juego', buttons: [
-    { label: `🗺️ Aventura · Nivel ${unlocked}`, cls: 'b1', fn: openMap },
+    { label: `🚀 Aventura · ${Object.keys(starsMap).length} planetas`, cls: 'b1', fn: () => openMap() },
     { label: `♾️ Clásico · Récord ${best}`, cls: 'b2', fn: startClassic }] });
-}
-function openMap() {
-  hideCard(); isOver = true;
-  const $p = document.getElementById('path'), total = Math.ceil((unlocked + 12) / 10) * 10;
-  const node = n => {
-    const st = starsMap[n] || 0, lock = n > unlocked, x = Math.round(Math.sin(n * 0.9) * 90);
-    return `<button class="node${n % 10 ? '' : ' boss'}${n === unlocked ? ' cur' : ''}${lock ? ' lock' : ''}" data-n="${n}" style="left:${x}px" ${lock ? 'disabled' : ''} aria-label="Nivel ${n}">${n === unlocked ? `<div class="avatar">${prismiPx('happy', 46)}</div>` : ''}${lock ? '🔒' : n % 10 ? n : '👑'}<small>${lock ? '' : '⭐'.repeat(st) + '☆'.repeat(3 - st)}</small></button>`;
-  };
-  // one themed section per world: pixel scene background, title, its 10 levels
-  $p.innerHTML = Array.from({ length: total / 10 }, (_, w) => {
-    const first = w * 10 + 1;
-    return `<section class="world" data-w="${w % WORLDS.length}"><h3 class="wtitle">Mundo ${w + 1} · ${worldName(first)}</h3>${Array.from({ length: 10 }, (_, k) => node(first + k)).join('')}</section>`;
-  }).join('');
-  $map.classList.add('on');
-  $p.querySelectorAll('.world').forEach(s => { s.style.backgroundImage = `url(${pxScene(+s.dataset.w, Math.ceil(s.clientWidth / 4), Math.ceil(s.clientHeight / 4), true).toDataURL()})`; });
-  // dotted trail between levels
-  const pr = $p.getBoundingClientRect(), pts = [...$p.querySelectorAll('.node')].map(b => { const r = b.getBoundingClientRect(); return `${(r.left - pr.left + r.width / 2).toFixed(0)},${(r.top - pr.top + r.height / 2).toFixed(0)}`; });
-  $p.insertAdjacentHTML('afterbegin', `<svg id="pathSvg" width="${pr.width}" height="${$p.scrollHeight}"><polyline points="${pts.join(' ')}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="8" stroke-linejoin="miter" stroke-dasharray="8 12"/></svg>`);
-  const cur = $p.querySelector('.cur'); if (cur) cur.scrollIntoView({ block: 'center' });
-  story('intro', STORY.intro);
 }
 const TIPS = { stones: '🪨 La piedra no se rompe: completa la línea con ella dentro. Solo la 💣 la destruye.', gems: '💎 Borra la línea de cada gema para recogerla.', ice: '🧊 Borra la línea del hielo para romperlo (el doble aguanta 2).' };
 const SHAPE_NAMES = { square: '', cross: ' en cruz', corners: ' con esquinas recortadas', hole: ' con agujero', diamond: ' en rombo' };
 // first level of a new world and boss levels get their story beat first
 function levelIntro(n) {
   const after = () => n % 10 === 0 ? story('b' + n, STORY.boss(n), () => showIntro(n)) : showIntro(n);
-  n % 10 === 1 && n > 1 ? story('w' + worldIdx(n), STORY.world(n), after) : after();
+  n > 10 && routeOf(n) >= 0 && (n - 1) % 10 % 3 === 0 ? story('w' + worldIdx(n), STORY.world(n), after) : after();
 }
 function showIntro(n) {
   const L = getLevel(n), tips = ['stones', 'gems', 'ice'].filter(k => k === 'stones' ? L.B.g.flat().includes(STONE) : L.goals[k]).map(k => `<div style="margin-top:6px;font-size:14px">${TIPS[k]}</div>`).join('');
-  showCard({ title: `Nivel ${n}${n % 10 ? '' : ' 👑'}`, art: n % 10 ? prismiPx('happy', 70) : grisonPx('angry', 92), big: String(L.moves), sub: `movimientos · tablero ${L.size}×${L.size}${SHAPE_NAMES[L.spec.shape]}${L.size < 8 ? ' (¡poco espacio!)' : L.size > 8 ? ' (líneas más largas)' : ''}${goalsHTML(L)}${tips}`,
+  showCard({ title: `Planeta ${n}${n % 10 ? '' : ' 👑'}`, art: n % 10 ? prismiPx('happy', 70) : grisonPx('angry', 92), big: String(L.moves), sub: `movimientos · tablero ${L.size}×${L.size}${SHAPE_NAMES[L.spec.shape]}${L.size < 8 ? ' (¡poco espacio!)' : L.size > 8 ? ' (líneas más largas)' : ''}${goalsHTML(L)}${tips}`,
     buttons: [{ label: '▶ Jugar', cls: 'b1', fn: () => startLevel(n) }, { label: 'Volver', fn: () => {} }] });
 }
-document.getElementById('path').onclick = e => { const b = e.target.closest('.node'); if (!b || b.disabled) return; ensureAudio(); tone(600, 0.06, 'sine', 0.1, 0, 900); levelIntro(+b.dataset.n); };
 document.getElementById('mapBack').onclick = () => { ensureAudio(); showMenu(); };
 const $pause = document.getElementById('pause');
 $pause.onclick = () => {
@@ -617,7 +591,7 @@ $pause.onclick = () => {
   showCard({ title: 'Pausa', big: '⏸', sub: lv ? goalsHTML(lvl, gemsGot, iceGot, score) : `Puntuación: ${score}`, buttons: [
     { label: '▶ Continuar', cls: 'b1', fn: () => { isOver = false; } },
     { label: lv ? 'Reintentar nivel' : 'Reiniciar partida', fn: replay },
-    ...(lv ? [{ label: '🗺️ Mapa', cls: 'b3', fn: openMap }] : []),
+    ...(lv ? [{ label: '🚀 Mapa', cls: 'b3', fn: () => openMap() }] : []),
     { label: '🏠 Menú principal', cls: 'b3', fn: showMenu }] });
 };
 
@@ -707,7 +681,7 @@ function frame(now) {
   const fill = fillRatio(grid);
 
   // background
-  const wi = mode === 'level' && lvl ? worldIdx(lvl.n) % WORLDS.length : -1, hue = wi < 0 ? 262 : WORLDS[wi].hue;
+  const wi = mode === 'level' && lvl ? themeIdx(lvl.n) : -1, hue = wi < 0 ? 262 : WORLDS[wi].hue;
   ctx.imageSmoothingEnabled = false; ctx.drawImage(sceneFor(wi), 0, 0, W, H);
   if (fire) { ctx.fillStyle = `hsla(${(T * 120) % 360},100%,55%,.14)`; ctx.fillRect(0, 0, W, H); }
   ctx.globalCompositeOperation = 'lighter';
@@ -870,5 +844,6 @@ function pill(x, y, txt, color, align) {
 // rule tests live in test.html
 resize(); renderBar(); showMenu(); requestAnimationFrame(frame);
 </script>
+<script src="space.js?v=8"></script>
 </body>
 </html>

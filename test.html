@@ -2,7 +2,7 @@
 <meta charset="utf-8">
 <title>Prisma Pop: tests</title>
 <pre id="out" style="font:14px monospace"></pre>
-<script src="core.js?v=5"></script>
+<script src="core.js?v=8"></script>
 <script>
 const out = [], ok = (cond, name) => out.push((cond ? 'OK   ' : 'FAIL ') + name);
 // stone: row with a stone completes without it, stone stays
@@ -47,6 +47,14 @@ const shapes = Array.from({ length: 60 }, (_, i) => makeLevel(i + 11));
 ok(new Set(shapes.map(L => L.spec.shape)).size >= 4, 'levels use at least 4 board shapes: ' + [...new Set(shapes.map(L => L.spec.shape))].join(', '));
 ok(shapes.every(L => L.B.g.every(row => row.some(v => v !== VOID)) && L.B.g.flat().filter(v => v === VOID).length < L.size * L.size / 2), 'shapes: every row playable, void under half the board');
 ok(new Set(Array.from({ length: 40 }, (_, i) => makeLevel(i + 11).size)).size >= 4, 'levels use at least 4 different board sizes');
+// adventure tree: route starts open, chains, any route opens the boss, boss opens next sector
+const D = new Set(), dn = n => D.has(n);
+ok([1, 4, 7].every(n => isOpen(n, dn)) && !isOpen(2, dn) && !isOpen(10, dn) && !isOpen(11, dn), 'tree: only the 3 route starts are open at first');
+D.add(4); D.add(5); ok(isOpen(6, dn) && !isOpen(10, dn), 'tree: planets in a route open one by one');
+D.add(6); ok(isOpen(10, dn) && !isOpen(11, dn), 'tree: finishing one route opens the boss');
+D.add(10); ok([11, 14, 17].every(n => isOpen(n, dn)) && !isOpen(20, dn), 'tree: beating the boss opens the 3 routes of the next sector');
+ok(nextInRoute(5) === 6 && nextInRoute(6) === 10 && nextInRoute(10) === null && routeOf(10) === -1 && routeOf(17) === 2, 'tree: next planet in route');
+ok([11, 21, 31].every(b => levelDiff(b) < levelDiff(b + 3) && levelDiff(b + 3) < levelDiff(b + 6) && levelDiff(b + 8) < levelDiff(b + 9)), 'difficulty: easy < normal < hard < boss in every sector');
 ok(t1 - t0 < 400, `level generation time ${(t1 - t0).toFixed(0)} ms (< 400)`);
 document.getElementById('out').textContent = out.join('\n') + '\n\n' + rowsTxt.join('\n');
 window.RESULT = out;
