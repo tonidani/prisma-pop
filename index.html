@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Prisma Pop</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 /* pixel look: square corners, 4px "notched" borders made of 4 offset shadows, flat colours with inset bevels */
-html,body{margin:0;height:100%;background:#12062b;overflow:hidden;touch-action:none;font-family:"Pixelify Sans",system-ui,sans-serif;color:#fff;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;background:#12062b;overflow:hidden;touch-action:none;font-family:Fredoka,system-ui,sans-serif;color:#fff;user-select:none;-webkit-user-select:none}
 canvas{display:block}
+.card h2,.big,.node,#cTitle{font-family:"Press Start 2P",monospace;font-weight:400}
 .px,.world{image-rendering:crisp-edges;image-rendering:pixelated}
 .px{display:block}
 .card,button,.bubble,.wtitle,.b-say{--bd:#0d0626;--bev:inset 0 -4px rgba(0,0,0,.3),inset 0 4px rgba(255,255,255,.22);box-shadow:0 -4px var(--bd),0 4px var(--bd),-4px 0 var(--bd),4px 0 var(--bd),var(--bev)}
@@ -19,8 +20,8 @@ canvas{display:block}
 @keyframes fade{from{opacity:0}}
 .card{background:#2c1670;--bd:#cbb6ff;--bev:inset 0 0 0 4px #4a2596,inset 0 -8px #1d0f4a,0 0 0 8px #0d0626;padding:28px 22px 22px;text-align:center;width:300px;max-width:84vw;animation:pop .3s steps(4)}
 @keyframes pop{from{transform:scale(.6);opacity:0}}
-.card h2{margin:0 0 6px;font-size:32px;font-weight:700;color:#ffd60a;text-shadow:3px 3px 0 #a35a00,6px 6px 0 #0d0626}
-.big{font-size:60px;font-weight:700;margin:0 0 4px;color:#b7e6ff;text-shadow:4px 4px 0 #1d0f4a}
+.card h2{margin:4px 0 12px;font-size:16px;line-height:1.6;color:#ffd60a;text-shadow:3px 3px 0 #a35a00,6px 6px 0 #0d0626}
+.big{font-size:40px;margin:8px 0 12px;color:#b7e6ff;text-shadow:4px 4px 0 #1d0f4a}
 .muted{opacity:.8;font-weight:500}
 .nm{color:#ffd60a;font-weight:600;margin-top:6px;min-height:1.2em}
 button{font-family:inherit;display:block;width:100%;margin:16px 0 0;padding:14px;border:0;border-radius:0;font-size:21px;font-weight:700;color:#fff;cursor:pointer;text-shadow:2px 2px 0 rgba(0,0,0,.35);background:#5b33b8}
@@ -41,7 +42,7 @@ button:active{transform:translateY(4px);--bev:inset 0 4px rgba(0,0,0,.3)}
 #bar button.got{animation:got .6s steps(4)}
 @keyframes got{30%{transform:scale(1.35) rotate(-8deg)}}
 #bar.nudge button{animation:pulse .5s steps(2) infinite}
-.logo{font-size:44px!important}
+.logo{font-size:24px!important}
 .goals{display:flex;justify-content:center;gap:14px;font-size:22px;font-weight:600;margin:6px 0}
 #map{position:fixed;inset:0;z-index:6;display:none;overflow-y:auto;background:#0d0626;-webkit-overflow-scrolling:touch;touch-action:pan-y}
 #map.on{display:block}
@@ -70,11 +71,11 @@ button:active{transform:translateY(4px);--bev:inset 0 4px rgba(0,0,0,.3)}
 @keyframes jump{30%{transform:translateY(-16px)}60%{transform:translateY(0)}}
 .b-say{position:absolute;right:100%;top:6px;margin-right:8px;background:#fff;color:#2a1460;--bd:#1d0f4a;--bev:0 0 #0000;font-weight:700;font-size:13px;padding:6px 10px;white-space:nowrap;opacity:0;transform:scale(.5);transform-origin:right bottom;transition:.15s steps(3)}
 .b-say.on{opacity:1;transform:none}
-.node{position:relative;z-index:2;width:60px;height:60px;margin:0;padding:0;font-size:24px;background:#6a3cf0;--bd:#fff;flex:none}
-.node.boss{width:76px;height:76px;font-size:28px;background:#d6264a;--bd:#ffd60a}
+.node{position:relative;z-index:2;width:60px;height:60px;margin:0;padding:0;font-size:16px;background:#6a3cf0;--bd:#fff;flex:none}
+.node.boss{width:76px;height:76px;font-size:24px;background:#d6264a;--bd:#ffd60a}
 .node.cur{animation:pulse .8s steps(2) infinite}
 .node.lock{filter:grayscale(1);opacity:.55;cursor:default;--bd:#0d0626}
-.node small{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);font-size:13px;white-space:nowrap;letter-spacing:1px}
+.node small{font-family:Fredoka,system-ui;position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);font-size:13px;white-space:nowrap;letter-spacing:1px}
 #pause{position:fixed;left:14px;width:40px;height:40px;margin:0;padding:0;font-size:18px;z-index:4;background:#4a2596}
 #hint{position:fixed;left:0;right:0;text-align:center;font-weight:600;color:#ffd60a;z-index:3;pointer-events:none;text-shadow:2px 2px 0 #000}
 </style>
@@ -100,8 +101,8 @@ button:active{transform:translateY(4px);--bev:inset 0 4px rgba(0,0,0,.3)}
   <div class="muted">Simulación: aquí va el SDK real (AdMob / Poki / CrazyGames)</div>
   <div class="big" id="adCount">3</div>
 </div></div>
-<script src="core.js?v=6"></script>
-<script src="art.js?v=6"></script>
+<script src="core.js?v=7"></script>
+<script src="art.js?v=7"></script>
 <script>
 'use strict';
 // ---------- storage & analytics ----------
@@ -727,24 +728,24 @@ function frame(now) {
   // classic: big score; adventure: big moves left (red and pulsing when 3 or fewer)
   const bigTxt = lv ? movesLeft : Math.round(shownScore), bigScale = lv ? 1 + (low ? Math.sin(T * 9) * 0.08 : 0) : 1 + scorePulse * 0.35;
   ctx.save(); ctx.translate(W / 2, by * 0.47); ctx.scale(bigScale, bigScale);
-  ctx.font = `700 ${Math.round(cs * 1.05)}px "Pixelify Sans", system-ui`;
+  ctx.font = `${Math.max(16, Math.round(cs * 0.9 / 8) * 8)}px "Press Start 2P", monospace`;
   ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.strokeText(bigTxt, 0, 4);
   const gold = !lv && newBest, sg = ctx.createLinearGradient(0, -cs * 0.5, 0, cs * 0.5); sg.addColorStop(0, '#ffffff'); sg.addColorStop(1, low ? '#ff3b5c' : gold ? '#ffd60a' : '#b7e6ff');
   ctx.shadowColor = low ? '#ff2a55' : gold ? '#ffb700' : '#5ac8ff'; ctx.shadowBlur = 18 + scorePulse * 30; ctx.fillStyle = sg; ctx.fillText(bigTxt, 0, 0);
   ctx.restore();
-  ctx.font = `600 ${Math.round(cs * 0.36)}px "Pixelify Sans", system-ui`;
+  ctx.font = `600 ${Math.round(cs * 0.36)}px Fredoka, system-ui`;
   if (lv) {
     pill(Math.max(bx, 68), by * 0.15, `Nivel ${lvl.n}`, lvl.n % 10 ? '#cbb6ff' : '#ff9db0', 'left');
     const st = starsFor(Math.round(shownScore));
     pill(bx + cs * N, by * 0.15, `${'⭐'.repeat(st)}${'☆'.repeat(3 - st)} ${Math.round(shownScore)}/${lvl.target}`, score >= lvl.target ? '#1fe08a' : '#ffd60a', 'right');
     const g = [lvl.goals.gems && `💎 ${Math.min(gemsGot, lvl.goals.gems)}/${lvl.goals.gems}`, lvl.goals.ice && `🧊 ${Math.min(iceGot, lvl.goals.ice)}/${lvl.goals.ice}`].filter(Boolean).join('    ');
-    ctx.font = `700 ${Math.round(cs * 0.42)}px "Pixelify Sans", system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+    ctx.font = `700 ${Math.round(cs * 0.42)}px Fredoka, system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
     ctx.fillText(g || (streak > 1 ? '' : 'movimientos'), W / 2, by - 24);
   } else {
     pill(Math.max(bx, 68), by * 0.15, '👑 ' + best, '#ffd60a', 'left');
     pill(bx + cs * N, by * 0.15, '🔥 ' + dayStreak + (dayStreak === 1 ? ' día' : ' días'), '#ff9f1c', 'right');
   }
-  if (streak > 1 && !(lv && (lvl.goals.gems || lvl.goals.ice))) { ctx.font = `700 ${Math.round(cs * 0.42)}px "Pixelify Sans", system-ui`; ctx.fillStyle = hex(1 + streak % 7); ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 14; ctx.fillText((fire ? '🔥 ' : '') + 'RACHA x' + streak, W / 2, by - 24); ctx.shadowBlur = 0; }
+  if (streak > 1 && !(lv && (lvl.goals.gems || lvl.goals.ice))) { ctx.font = `700 ${Math.round(cs * 0.42)}px Fredoka, system-ui`; ctx.fillStyle = hex(1 + streak % 7); ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 14; ctx.fillText((fire ? '🔥 ' : '') + 'RACHA x' + streak, W / 2, by - 24); ctx.shadowBlur = 0; }
 
   // board (with punch zoom)
   punch *= Math.pow(0.002, dt);
@@ -839,7 +840,7 @@ function frame(now) {
     const age = x.max - x.life, k = Math.min(1, age / 0.22), sc = 0.2 + 0.8 * easeBack(k), rot = Math.sin(age * 18) * 0.1 * Math.exp(-age * 4);
     ctx.save(); ctx.translate(x.x, x.y - (x.big ? 0 : age * 50)); ctx.rotate(x.big ? rot : 0); ctx.scale(sc, sc);
     ctx.globalAlpha = Math.min(1, x.life * 2.5);
-    ctx.font = `700 ${Math.round(x.size)}px "Pixelify Sans", system-ui`;
+    ctx.font = `${Math.max(8, Math.round(x.size * 0.6 / 8) * 8)}px "Press Start 2P", monospace`;
     ctx.lineJoin = 'round'; ctx.lineWidth = x.size * 0.16; ctx.strokeStyle = 'rgba(30,0,60,.85)'; ctx.strokeText(x.txt, 0, 0);
     const g = ctx.createLinearGradient(0, -x.size / 2, 0, x.size / 2); g.addColorStop(0, '#fff'); g.addColorStop(0.55, x.color); g.addColorStop(1, x.color);
     ctx.shadowColor = x.color; ctx.shadowBlur = x.big ? 30 : 10; ctx.fillStyle = g; ctx.fillText(x.txt, 0, 0);
