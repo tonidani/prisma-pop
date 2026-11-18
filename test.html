@@ -1,0 +1,37 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Prisma Pop: tests</title>
+<pre id="out" style="font:14px monospace"></pre>
+<script src="core.js"></script>
+<script>
+const out = [], ok = (cond, name) => out.push((cond ? 'OK   ' : 'FAIL ') + name);
+// stone: row with a stone completes without it, stone stays
+let B = newBoard(); B.g[0][3] = STONE; for (let c = 0; c < N; c++) if (c !== 3 && c !== 7) B.g[0][c] = 1;
+let r = applyMove(B, [[0, 0]], 2, 0, 7);
+ok(r.n === 1 && B.g[0][3] === STONE && B.g[0][0] === 0, 'stone: line clears, stone stays');
+B = newBoard(); for (let c = 0; c < N; c++) B.g[0][c] = STONE; ok(fullLines(B.g).rows.length === 0, 'stone: all-stone row never clears');
+// ice: two clears
+B = newBoard(); B.g[0][0] = ICE; B.hp[0][0] = 2; for (let c = 1; c < 7; c++) B.g[0][c] = 1;
+r = applyMove(B, [[0, 0]], 1, 0, 7); ok(r.ice === 0 && B.g[0][0] === ICE && B.hp[0][0] === 1, 'ice: first clear cracks');
+for (let c = 1; c < 7; c++) B.g[0][c] = 1; r = applyMove(B, [[0, 0]], 1, 0, 7); ok(r.ice === 1 && B.g[0][0] === 0, 'ice: second clear breaks');
+// gem
+B = newBoard(); for (let c = 0; c < 7; c++) B.g[0][c] = 3; B.gem[0][2] = true; r = applyMove(B, [[0, 0]], 1, 0, 7); ok(r.gems === 1 && !B.gem[0][2], 'gem: collected on clear');
+// bomb breaks stone
+B = newBoard(); B.g[1][1] = STONE; ok(hitCell(B, 1, 1, false).removed === false && hitCell(B, 1, 1, true).removed, 'stone: only bomb breaks it');
+// scoring/streak
+ok(linePoints(1, 1) === 20 && linePoints(2, 3) === 120 && nextStreak(2, 2, 0)[0] === 0 && nextStreak(2, 0, 1)[0] === 3, 'scoring and streak');
+// levels: deterministic, sane, no full lines at start
+const t0 = performance.now(); const L15a = makeLevel(15), t1 = performance.now(), L15b = makeLevel(15);
+ok(L15a.moves === L15b.moves && L15a.target === L15b.target && JSON.stringify(L15a.B) === JSON.stringify(L15b.B), 'level 15 is identical every time');
+let sane = true, rowsTxt = [];
+for (let n = 1; n <= 40; n++) {
+  const L = makeLevel(n), F = fullLines(L.B.g);
+  if (!(L.moves >= 10 && L.moves <= 50 && L.target >= 10 && !F.rows.length && !F.cols.length)) sane = false;
+  const g = L.B.g.flat();
+  rowsTxt.push(`#${String(n).padStart(2)} d=${L.d.toFixed(2)} bot=${L.botWin} try=${L.attempt} ${L.spec.goal.padEnd(5)} moves=${String(L.moves).padStart(2)} target=${String(L.target).padStart(4)} stones=${g.filter(v => v === STONE).length} ice=${g.filter(v => v === ICE).length} gems=${L.B.gem.flat().filter(Boolean).length}`);
+}
+ok(sane, 'levels 1-40: moves 10-50, target > 0, no full line at start');
+ok(t1 - t0 < 400, `level generation time ${(t1 - t0).toFixed(0)} ms (< 400)`);
+document.getElementById('out').textContent = out.join('\n') + '\n\n' + rowsTxt.join('\n');
+window.RESULT = out;
+</script>

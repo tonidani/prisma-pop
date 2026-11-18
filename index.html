@@ -11,6 +11,7 @@ html,body{margin:0;height:100%;background:#12062b;overflow:hidden;touch-action:n
 canvas{display:block}
 .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,rgba(60,20,120,.75),rgba(5,2,20,.92));backdrop-filter:blur(6px);z-index:5}
 .ov.on{display:flex;animation:fade .25s}
+#over{z-index:7}#ad{z-index:8}
 @keyframes fade{from{opacity:0}}
 .card{background:linear-gradient(160deg,#4a2596,#1d0f4a);border:2px solid rgba(255,255,255,.18);border-radius:28px;padding:30px 24px 24px;text-align:center;width:300px;max-width:86vw;box-shadow:0 0 60px rgba(160,90,255,.45),inset 0 2px 0 rgba(255,255,255,.2);animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
 @keyframes pop{from{transform:scale(.6);opacity:0}}
@@ -35,6 +36,19 @@ button:active{transform:translateY(4px);box-shadow:none}
 #bar button.got{animation:got .7s}
 @keyframes got{30%{transform:scale(1.35) rotate(-8deg);box-shadow:0 0 30px #fff}}
 #bar.nudge button{animation:pulse .5s infinite}
+.b3{background:linear-gradient(#ffd44d,#f08c00);box-shadow:0 6px 0 #a35a00}
+.logo{font-size:46px!important}
+.goals{display:flex;justify-content:center;gap:14px;font-size:22px;font-weight:600;margin:6px 0}
+#map{position:fixed;inset:0;z-index:6;display:none;overflow-y:auto;background:linear-gradient(#2a1460,#0d0626);-webkit-overflow-scrolling:touch;touch-action:pan-y}
+#map.on{display:block}
+.mhead{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:14px;padding:12px 16px;background:rgba(20,8,50,.92);font-size:22px;font-weight:700}
+.mhead button{width:auto;margin:0;padding:8px 14px;font-size:16px}
+.path{display:flex;flex-direction:column;align-items:center;gap:22px;padding:30px 16px 120px}
+.node{position:relative;width:66px;height:66px;margin:0;padding:0;border-radius:50%;font-size:24px;background:linear-gradient(#a98bff,#6236e0);box-shadow:0 5px 0 #3a1d99,0 0 18px rgba(160,120,255,.5);flex:none}
+.node.boss{width:84px;height:84px;font-size:28px;background:linear-gradient(#ff8fa3,#d6264a);box-shadow:0 6px 0 #8a0020,0 0 24px rgba(255,80,120,.6)}
+.node.cur{animation:pulse .9s infinite}
+.node.lock{filter:grayscale(1);opacity:.45;cursor:default}
+.node small{position:absolute;left:50%;bottom:-20px;transform:translateX(-50%);font-size:13px;white-space:nowrap;letter-spacing:1px}
 #hint{position:fixed;left:0;right:0;text-align:center;font-weight:600;color:#ffd60a;z-index:3;pointer-events:none;text-shadow:0 2px 6px #000}
 </style>
 </head>
@@ -43,19 +57,19 @@ button:active{transform:translateY(4px);box-shadow:none}
 <div id="hint"></div>
 <div id="bar"></div>
 <div class="ov" id="over"><div class="card">
-  <h2>¡Sin espacio!</h2>
-  <div class="muted">Puntuación</div>
-  <div class="big" id="oScore">0</div>
-  <div id="oBest" class="muted"></div>
-  <div id="oNear" class="nm"></div>
-  <button class="b1" id="bRevive">▶ Revivir</button>
-  <button class="b2" id="bAgain">Jugar de nuevo</button>
+  <h2 id="cTitle"></h2>
+  <div class="big" id="cBig"></div>
+  <div id="cSub" class="muted"></div>
+  <div id="cNear" class="nm"></div>
+  <div id="cBtns"></div>
 </div></div>
+<div id="map"><div class="mhead"><button class="b2" id="mapBack">← Menú</button><span>🗺️ Aventura</span></div><div class="path" id="path"></div></div>
 <div class="ov" id="ad"><div class="card">
   <h2 id="adTitle">Anuncio</h2>
   <div class="muted">Simulación: aquí va el SDK real (AdMob / Poki / CrazyGames)</div>
   <div class="big" id="adCount">3</div>
 </div></div>
+<script src="core.js"></script>
 <script>
 'use strict';
 // ---------- storage & analytics ----------
@@ -76,60 +90,37 @@ const daysSinceInstall = Math.floor((Date.now() - (+ls('pp_install') || Date.now
 })();
 const dayStreak = +ls('pp_daystreak') || 1;
 
-// ---------- shapes ----------
-const N = 8;
-// [base, light, dark]
+// colours [base, light, dark]: 1-7 pieces, 8 stone, 9 ice (rules live in core.js)
 const COLORS = [['#ff3b5c', '#ff9db0', '#a8002a'], ['#ff8a00', '#ffcc7a', '#a85400'], ['#ffd000', '#fff3a3', '#a88700'], ['#1fe08a', '#9dffd0', '#08834a'],
-  ['#00c8ff', '#9becff', '#006ea8'], ['#8a5cff', '#cbb6ff', '#4417bd'], ['#ff4fd8', '#ffb0f0', '#a8007f']];
-const BASE = ['#', '##', '###', '####', '#####', '##|##', '###|###|###', '#.|##', '#..|###', '###|.#.', '.##|##.', '##.|.##', '##|##|##', '#..|#..|###'];
-const parse = s => s.split('|').flatMap((row, r) => [...row].map((ch, c) => ch === '#' ? [r, c] : null)).filter(Boolean);
-const norm = cs => { const mr = Math.min(...cs.map(p => p[0])), mc = Math.min(...cs.map(p => p[1])); return cs.map(([r, c]) => [r - mr, c - mc]).sort((a, b) => a[0] - b[0] || a[1] - b[1]); };
-const SHAPES = []; { const seen = new Set();
-  for (const b of BASE) { let cs = parse(b); for (let i = 0; i < 4; i++) { cs = norm(cs.map(([r, c]) => [c, -r])); const k = JSON.stringify(cs); if (!seen.has(k)) { seen.add(k); SHAPES.push(cs); } } } }
-const dims = cs => [Math.max(...cs.map(p => p[0])) + 1, Math.max(...cs.map(p => p[1])) + 1];
-
-// ---------- board logic ----------
-const emptyGrid = () => Array.from({ length: N }, () => Array(N).fill(0));
-const fits = (g, cs, r, c) => cs.every(([dr, dc]) => { const R = r + dr, C = c + dc; return R >= 0 && R < N && C >= 0 && C < N && !g[R][C]; });
-function fitsAnywhere(g, cs) { for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (fits(g, cs, r, c)) return true; return false; }
-function fullLines(g) {
-  const rows = [], cols = [];
-  for (let i = 0; i < N; i++) { if (g[i].every(v => v)) rows.push(i); if (g.every(row => row[i])) cols.push(i); }
-  return { rows, cols };
-}
-function linesIfPlaced(g, cs, r, c) { const t = g.map(row => row.slice()); cs.forEach(([dr, dc]) => t[r + dr][c + dc] = 1); return fullLines(t); }
+  ['#00c8ff', '#9becff', '#006ea8'], ['#8a5cff', '#cbb6ff', '#4417bd'], ['#ff4fd8', '#ffb0f0', '#a8007f'], ['#7d8494', '#b9bfcc', '#3e4350'], ['#8fe3ff', '#eafaff', '#3fa6d1']];
 
 // ---------- game state ----------
-let grid, tray, score, best = +ls('pp_best') || 0, streak, movesNoClear, revived, gameStartT, newBest, oldBest, recordShown;
+let board = newBoard(), grid = board.g, tray = [null, null, null], score = 0, best = +ls('pp_best') || 0, streak = 0, movesNoClear = 0, revived, gameStartT, newBest, oldBest, recordShown;
 let landT = emptyGrid();
+let mode = 'classic', lvl = null, movesLeft = 0, gemsGot = 0, iceGot = 0, plusUsed = false, won = false;
 const S = { games: 0, start: Date.now() };
-const BIG = SHAPES.filter(s => s.length >= 5);
-// difficulty grows with score (same for every player, never tied to ad value): 0 at start, 1 at 4000 points
-const difficulty = () => Math.min(1, score / 4000);
-function newPiece() {
-  const pool = Math.random() < difficulty() * 0.4 ? BIG : SHAPES;
-  return { cells: pool[Math.random() * pool.length | 0], color: 1 + (Math.random() * COLORS.length | 0) };
-}
-function newTray() {
-  const fill = grid.flat().filter(Boolean).length / (N * N), d = difficulty();
-  tray = [0, 1, 2].map(() => {
-    let p = newPiece();
-    // soft help on a crowded board, fading out as difficulty rises
-    for (let k = 0; fill > 0.45 && k < Math.round(6 * (1 - d)) && !fitsAnywhere(grid, p.cells); k++) p = newPiece();
-    return p;
-  });
-  // fairness: never deal a trio where nothing fits if some shape could
-  if (!tray.some(p => fitsAnywhere(grid, p.cells))) {
-    const ok = SHAPES.filter(cs => fitsAnywhere(grid, cs));
-    if (ok.length) tray[0].cells = ok[Math.random() * ok.length | 0];
-  }
-  trayIn = 0;
-}
+const levelCache = new Map(), getLevel = n => levelCache.get(n) || levelCache.set(n, makeLevel(n)).get(n);
+let unlocked = +ls('pp_level') || 1, starsMap = {}; try { starsMap = JSON.parse(ls('pp_stars')) || {}; } catch (e) {}
+// difficulty: classic grows with score, adventure comes from the level number; never tied to ad value
+const difficulty = () => mode === 'level' ? lvl.d * 0.6 : Math.min(1, score / 4000);
+function newTray() { tray = dealTray(grid, Math.random, difficulty()); trayIn = 0; }
 function newGame() {
-  grid = emptyGrid(); score = 0; shownScore = 0; streak = 0; movesNoClear = 0; revived = false; newBest = false; recordShown = false; oldBest = best; gameStartT = Date.now();
-  S.games++; newTray(); log('game_start', { game_index: S.games, best });
+  board = mode === 'level' ? cloneBoard(lvl.B) : newBoard(); grid = board.g; landT = emptyGrid();
+  score = 0; shownScore = 0; streak = 0; movesNoClear = 0; revived = false; newBest = false; recordShown = false; oldBest = best; gameStartT = Date.now();
+  movesLeft = lvl ? lvl.moves : 0; gemsGot = 0; iceGot = 0; plusUsed = false; won = false; isOver = false;
+  S.games++; newTray();
+  log(mode === 'level' ? 'level_start' : 'game_start', { game_index: S.games, best, level: lvl ? lvl.n : 0 });
   armed = null; gameAdBoosts = 0; gameEarned = {}; $bar.classList.remove('nudge'); renderBar();
-  if (dailyGift) { say(`🎁 Regalo diario: +1 ${BOOST[dailyGift].icon} ${BOOST[dailyGift].name}`, cs * 0.5, '#1fe08a', undefined, 2.5); dailyGift = null; }
+  if (lvl) say(`Nivel ${lvl.n}`, cs * 0.9, lvl.n % 10 ? '#cbb6ff' : '#ff9db0', undefined, 1.6);
+  if (dailyGift) { say(`🎁 Regalo diario: +1 ${BOOST[dailyGift].icon} ${BOOST[dailyGift].name}`, cs * 0.5, '#1fe08a', by + cs * 5.2, 2.5); dailyGift = null; }
+}
+function startClassic() { mode = 'classic'; lvl = null; hideCard(); newGame(); }
+function startLevel(n) { mode = 'level'; lvl = getLevel(n); hideCard(); $map.classList.remove('on'); newGame(); }
+const goalsMet = () => score >= lvl.target && gemsGot >= lvl.goals.gems && iceGot >= lvl.goals.ice;
+const starsFor = s => lvl.stars.filter(t => s >= t).length;
+function goalsHTML(L, g = 0, i = 0, s = null) {
+  const p = (got, need) => s === null ? need : `${Math.min(got, need)}/${need}`; // intro shows only what is needed
+  return `<div class="goals"><span>🎯 ${s === null ? '' : s + '/'}${L.target}</span>${L.goals.gems ? `<span>💎 ${p(g, L.goals.gems)}</span>` : ''}${L.goals.ice ? `<span>🧊 ${p(i, L.goals.ice)}</span>` : ''}</div>`;
 }
 
 // ---------- audio / haptics ----------
@@ -223,35 +214,29 @@ function say(txt, size, color, y = by + cs * 4, life = 1.3) { texts.push({ x: W 
 // ---------- place ----------
 function place(i, r, c) {
   const p = tray[i];
-  p.cells.forEach(([dr, dc]) => { grid[r + dr][c + dc] = p.color; landT[r + dr][c + dc] = performance.now(); });
+  p.cells.forEach(([dr, dc]) => landT[r + dr][c + dc] = performance.now());
+  const res = applyMove(board, p.cells, p.color, r, c), { rows, cols, n } = res;
   score += p.cells.length; tray[i] = null;
+  if (mode === 'level') { movesLeft--; gemsGot += res.gems; iceGot += res.ice; }
   tone(200, 0.09, 'sine', 0.3, 0, 90); tone(1400, 0.02, 'square', 0.03); buzz(10);
-  const { rows, cols } = fullLines(grid), n = rows.length + cols.length;
+  [streak, movesNoClear] = nextStreak(streak, movesNoClear, n);
   if (n) {
-    streak++; movesNoClear = 0;
     if (streak === 3) grant('bomb', 'streak3');
     if (streak >= 5 && streak % 5 === 0) grant('prism', 'streak5');
     if (n >= 3) grant('hammer', 'lines3');
-    const cleared = new Set();
-    rows.forEach(R => { for (let C = 0; C < N; C++) cleared.add(R * N + C); beams.push({ row: true, i: R, life: 1, color: hex(p.color) }); });
-    cols.forEach(C => { for (let R = 0; R < N; R++) cleared.add(R * N + C); beams.push({ row: false, i: C, life: 1, color: hex(p.color) }); });
-    let k = 0;
-    cleared.forEach(key => {
-      const R = key / N | 0, C = key % N, col = hex(grid[R][C]), { x, y } = cellXY(R, C);
-      pops.push({ x, y, ci: grid[R][C], life: 1, delay: k++ * 0.012 });
-      burst(x + cs / 2, y + cs / 2, col, 6 + n * 2, 0.8 + n * 0.25);
-      grid[R][C] = 0;
-    });
-    let pts = (n === 1 ? 20 : n * n * 15) * (1 + Math.max(0, streak - 1) * 0.5) | 0;
-    const allClear = grid.every(row => row.every(v => !v));
+    rows.forEach(R => beams.push({ row: true, i: R, life: 1, color: hex(p.color) }));
+    cols.forEach(C => beams.push({ row: false, i: C, life: 1, color: hex(p.color) }));
+    res.hits.forEach((h, k) => hitFx(h, k * 0.012, 6 + n * 2, 0.8 + n * 0.25));
+    let pts = linePoints(n, streak);
+    const allClear = isEmpty(grid);
     if (allClear) pts += 500;
     score += pts; scorePulse = 1;
     const [ph, pw] = dims(p.cells), { x, y } = cellXY(r + ph / 2, c + pw / 2);
     texts.push({ x, y, txt: '+' + pts, life: 1, max: 1, size: cs * (0.6 + n * 0.1), color: '#fff' });
     rings.push({ x, y, life: 1, color: hex(p.color), max: cs * (3 + n * 1.5) });
-    const lvl = Math.min(6, n + streak - 1);
+    const pl = Math.min(6, n + streak - 1);
     if (allClear) { say('¡TABLERO LIMPIO!', cs * 0.95, '#ffd60a', undefined, 1.8); confettiRain(120); }
-    else if (lvl >= 2) say(PRAISE[lvl], cs * (0.75 + lvl * 0.12), hex(1 + (streak + n) % 7));
+    else if (pl >= 2) say(PRAISE[pl], cs * (0.75 + pl * 0.12), hex(1 + (streak + n) % 7));
     if (streak >= 2) texts.push({ x: W / 2, y: by + cs * 5.1, txt: 'RACHA x' + streak, life: 1, max: 1, size: cs * 0.5, color: '#ffd60a', big: true });
     shake = Math.min(34, 6 + n * 7 + streak * 3);
     flash = Math.min(0.55, 0.15 + n * 0.12); flashColor = n >= 3 || streak >= 3 ? hex(p.color) : '#fff';
@@ -263,14 +248,33 @@ function place(i, r, c) {
     whoosh(0.18 + n * 0.06, 0.3 + n * 0.08);
     if (n >= 2) tone(140, 0.5, 'sine', 0.35, 0, 40);
     buzz(n >= 2 ? [40, 30, 60 + n * 20] : 35);
-  } else if (++movesNoClear >= 3) streak = 0;
-  if (score > best) { best = score; newBest = true; ls('pp_best', best); }
-  if (newBest && !recordShown && oldBest > 0) {
+  }
+  checkRecord();
+  if (tray.every(t => !t)) newTray();
+  afterMove();
+}
+// what happens after anything changes the board: win, out of moves, or no space
+function afterMove() {
+  if (isOver || won) return;
+  if (mode === 'level' && goalsMet()) return levelWon();
+  if (mode === 'level' && movesLeft <= 0) return void setTimeout(outOfMoves, 600);
+  if (!tray.some(t => t && fitsAnywhere(grid, t.cells))) setTimeout(gameOver, 700);
+}
+function checkRecord() {
+  if (mode !== 'classic' || score <= best) return;
+  best = score; newBest = true; ls('pp_best', best);
+  if (!recordShown && oldBest > 0) {
     recordShown = true; say('¡NUEVO RÉCORD!', cs * 0.9, '#ffd60a', by + cs * 2.6, 2); confettiRain(160);
     [0, 4, 7, 12].forEach((s, j) => tone(523 * Math.pow(2, s / 12), 0.3, 'triangle', 0.15, 0.25 + j * 0.09)); buzz([60, 40, 60, 40, 120]);
   }
-  if (tray.every(t => !t)) newTray();
-  if (!tray.some(t => t && fitsAnywhere(grid, t.cells))) setTimeout(gameOver, 700);
+}
+// visual + sound for one hit cell (from a line clear, booster or revive)
+function hitFx(h, delay = 0, nPart = 8, power = 1) {
+  const { x, y } = cellXY(h.r, h.c);
+  if (h.removed) { pops.push({ x, y, ci: h.color, life: 1, delay }); burst(x + cs / 2, y + cs / 2, hex(h.color), nPart, power); }
+  if (h.cracked) { burst(x + cs / 2, y + cs / 2, '#eafaff', 10, 0.8); tone(1800, 0.06, 'square', 0.05, delay); }
+  if (h.gem) { texts.push({ x: x + cs / 2, y, txt: '💎', life: 1.2, max: 1.2, size: cs * 0.8, color: '#9becff' }); tone(1320, 0.15, 'triangle', 0.12, 0.1); }
+  if (h.ice) tone(1600, 0.1, 'triangle', 0.08, delay, 2400);
 }
 
 // ---------- ad pacing ----------
@@ -327,7 +331,8 @@ function renderBar() {
   ls('pp_boosters', JSON.stringify(boosts));
   const ad = canAdBoost();
   $bar.innerHTML = Object.entries(BOOST).map(([k, b]) => `<button data-k="${k}" class="${armed === k ? 'armed' : ''}${!boosts[k] && !ad ? ' empty' : ''}" aria-label="${b.name}">${b.icon}<small>${b.name}</small><b class="${boosts[k] ? '' : ad ? 'ad' : 'none'}">${boosts[k] || (ad ? '▶+1' : '0')}</b></button>`).join('')
-    + `<button data-k="music" class="mus" aria-label="Música" aria-pressed="${Music.on}">${Music.on ? '🔊' : '🔇'}<small>Música</small></button>`;
+    + `<button data-k="music" class="mus" aria-label="Música" aria-pressed="${Music.on}">${Music.on ? '🔊' : '🔇'}<small>Música</small></button>`
+    + `<button data-k="home" class="mus" aria-label="Salir">🏠<small>Salir</small></button>`;
   $hint.textContent = armed ? BOOST[armed].hint : '';
 }
 function grant(k, source) {
@@ -338,21 +343,27 @@ function grant(k, source) {
   [0, 7, 12].forEach((s, j) => tone(660 * Math.pow(2, s / 12), 0.15, 'triangle', 0.12, 0.15 + j * 0.07));
   log('booster_earned', { type: k, source });
 }
+// hammer: any block but stone; bomb: everything in 3x3 (stone too); prism: one piece colour
 function boostTargets(k, r, c) {
   const t = [];
   if (r < 0 || r >= N || c < 0 || c >= N) return t;
-  if (k === 'hammer' && grid[r][c]) t.push([r, c]);
+  const v = grid[r][c];
+  if (k === 'hammer' && v && v !== STONE) t.push([r, c]);
   if (k === 'bomb') for (let R = r - 1; R <= r + 1; R++) for (let C = c - 1; C <= c + 1; C++) if (R >= 0 && R < N && C >= 0 && C < N && grid[R][C]) t.push([R, C]);
-  if (k === 'prism' && grid[r][c]) for (let R = 0; R < N; R++) for (let C = 0; C < N; C++) if (grid[R][C] === grid[r][c]) t.push([R, C]);
+  if (k === 'prism' && v && v < STONE) for (let R = 0; R < N; R++) for (let C = 0; C < N; C++) if (grid[R][C] === v) t.push([R, C]);
   return t;
 }
 function useBoost(k, r, c) {
   const t = boostTargets(k, r, c);
-  if (!t.length) { tone(150, 0.08, 'triangle', 0.08); buzz(20); return; }
+  if (!t.length) { tone(150, 0.08, 'triangle', 0.08); buzz(20); if (grid[r] && grid[r][c] === STONE) say('La piedra solo cae con 💣', cs * 0.45, '#b9bfcc'); return; }
   const col = hex(grid[r][c] || grid[t[0][0]][t[0][1]]), { x, y } = cellXY(r, c);
-  t.forEach(([R, C], j) => { const p = cellXY(R, C); pops.push({ x: p.x, y: p.y, ci: grid[R][C], life: 1, delay: k === 'prism' ? j * 0.035 : 0 }); burst(p.x + cs / 2, p.y + cs / 2, hex(grid[R][C]), 10, 1.2); grid[R][C] = 0; });
+  t.forEach(([R, C], j) => {
+    const h = { r: R, c: C, ...hitCell(board, R, C, k === 'bomb') };
+    hitFx(h, k === 'prism' ? j * 0.035 : 0, 10, 1.2);
+    if (h.gem) gemsGot++; if (h.ice) iceGot++;
+  });
   score += t.length * 5; scorePulse = 1;
-  if (score > best) { best = score; newBest = true; ls('pp_best', best); }
+  checkRecord();
   if (k === 'hammer') { shake = 12; punch = 0.03; tone(320, 0.12, 'square', 0.1, 0, 70); whoosh(0.15, 0.25); buzz(40); }
   if (k === 'bomb') {
     shake = 34; flash = 0.55; flashColor = '#ff9f1c'; punch = 0.09; freeze = 110;
@@ -367,14 +378,13 @@ function useBoost(k, r, c) {
   boosts[k]--; armed = null; renderBar(); log('booster_used', { type: k, cells: t.length });
   afterBoost();
 }
-function afterBoost() {
-  $bar.classList.remove('nudge');
-  if (!tray.some(t => t && fitsAnywhere(grid, t.cells))) setTimeout(gameOver, 600);
-}
+function afterBoost() { $bar.classList.remove('nudge'); afterMove(); }
 $bar.onclick = e => {
-  const btn = e.target.closest('button'); if (!btn || isOver) return; const k = btn.dataset.k;
+  const btn = e.target.closest('button'); if (!btn) return; const k = btn.dataset.k;
   ensureAudio();
   if (k === 'music') { Music.set(!Music.on); renderBar(); return; }
+  if (k === 'home') { hideCard(); isOver = true; mode === 'level' ? openMap() : showMenu(); return; }
+  if (isOver || won) return;
   if (!boosts[k]) { // empty: rewarded ad gives one, within limits
     if (!canAdBoost()) { tone(150, 0.1, 'triangle', 0.08); buzz(20); say(gameAdBoosts >= LIMITS.adBoostsPerGame ? 'Sin más anuncios en esta partida' : 'Vuelve mañana a por más', cs * 0.45, '#ff9db0'); return; }
     gameAdBoosts++; ls('pp_adb_' + today, adBoostsToday() + 1);
@@ -389,44 +399,127 @@ $bar.onclick = e => {
   armed = armed === k ? null : k; tone(600, 0.06, 'sine', 0.1, 0, 900); renderBar();
 };
 
-// ---------- game over / revive ----------
-const $over = document.getElementById('over'), $rev = document.getElementById('bRevive');
-let isOver = false, reviveTimer;
+// ---------- cards: menu, end screens, level intro ----------
+const $over = document.getElementById('over'), $map = document.getElementById('map');
+let isOver = true, cardTimer; // true until a game starts (menu first)
+function hideCard() { clearInterval(cardTimer); $over.classList.remove('on'); }
+function showCard({ title, logo = false, big = '', count, sub = '', near = '', buttons = [] }) {
+  hideCard();
+  const $t = document.getElementById('cTitle'), $b = document.getElementById('cBig'), $btns = document.getElementById('cBtns');
+  $t.textContent = title; $t.className = logo ? 'logo' : ''; $b.textContent = big;
+  if (count !== undefined) { const t0 = performance.now(); (function k(now) { const p = Math.min(1, (now - t0) / 900); $b.textContent = Math.round(count * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(k); })(t0); }
+  document.getElementById('cSub').innerHTML = sub; document.getElementById('cNear').textContent = near;
+  $btns.innerHTML = '';
+  buttons.forEach(b => {
+    const el = document.createElement('button'); el.className = b.cls || 'b2'; el.textContent = b.label;
+    el.onclick = () => { ensureAudio(); hideCard(); b.fn(); };
+    $btns.append(el);
+    if (b.countdown) { // urgency on the rewarded offer
+      let s = b.countdown; el.textContent = `${b.label}  ${s}`;
+      cardTimer = setInterval(() => { s--; tone(700, 0.05, 'square', 0.04); el.textContent = `${b.label}  ${s}`; if (s <= 0) { clearInterval(cardTimer); el.remove(); } }, 1000);
+    }
+  });
+  void $over.offsetWidth; $over.classList.add('on');
+}
+const withAd = fn => AdPacer.decide() ? fakeAd('Anuncio', () => { AdPacer.shown('interstitial'); fn(); }) : fn();
+const replay = () => mode === 'level' ? startLevel(lvl.n) : startClassic();
+function offerRewarded(context) { ls('pp_rw_offer', (+ls('pp_rw_offer') || 0) + 1); log('rewarded_offer', { context }); }
+function watchRewarded(fn) { ls('pp_rw_accept', (+ls('pp_rw_accept') || 0) + 1); fakeAd('Anuncio con recompensa', () => { AdPacer.shown('rewarded'); fn(); }); }
+function nearLevel() {
+  const miss = [];
+  if (score < lvl.target) miss.push(`${lvl.target - score} puntos`);
+  if (gemsGot < lvl.goals.gems) miss.push(`${lvl.goals.gems - gemsGot} 💎`);
+  if (iceGot < lvl.goals.ice) miss.push(`${lvl.goals.ice - iceGot} 🧊`);
+  return miss.length ? `¡Te faltaban ${miss.join(' y ')}!` : '';
+}
+function endButtons(extra) {
+  const lv = mode === 'level';
+  return [...extra, { label: lv ? 'Reintentar' : 'Jugar de nuevo', fn: () => withAd(replay) }, { label: lv ? '🗺️ Mapa' : '🏠 Menú', cls: 'b3', fn: lv ? openMap : showMenu }];
+}
 function gameOver() {
-  if (isOver || tray.some(t => t && fitsAnywhere(grid, t.cells))) return;
+  if (isOver || won || tray.some(t => t && fitsAnywhere(grid, t.cells))) return;
   if (Object.values(boosts).some(v => v > 0)) { // still has boosters: nudge instead of ending
     if (!$bar.classList.contains('nudge')) { $bar.classList.add('nudge'); say('¡Usa un potenciador!', cs * 0.7, '#ffd60a'); tone(440, 0.2, 'triangle', 0.1, 0, 660); }
     return;
   }
   isOver = true;
-  const $s = document.getElementById('oScore'), t0 = performance.now();
-  (function count(now) { const k = Math.min(1, (now - t0) / 900); $s.textContent = Math.round(score * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(count); })(t0);
-  document.getElementById('oBest').textContent = newBest ? '🏆 ¡Nuevo récord!' : '👑 Récord: ' + best;
-  document.getElementById('oNear').textContent = !newBest && best > score ? `¡Te faltaron ${best - score} puntos para tu récord!` : '';
-  $rev.style.display = revived ? 'none' : 'block';
-  if (!revived) {
-    ls('pp_rw_offer', (+ls('pp_rw_offer') || 0) + 1); log('rewarded_offer', { context: 'revive' });
-    let s = 5; $rev.textContent = `▶ Revivir (anuncio)  ${s}`;
-    clearInterval(reviveTimer);
-    reviveTimer = setInterval(() => { s--; tone(700, 0.05, 'square', 0.04); $rev.textContent = `▶ Revivir (anuncio)  ${s}`; if (s <= 0) { clearInterval(reviveTimer); $rev.style.display = 'none'; } }, 1000);
-  }
-  log('game_over', { score, best, duration_s: (Date.now() - gameStartT) / 1e3 | 0, near_miss: best && !newBest && score >= best * 0.85 ? 1 : 0, revived: revived ? 1 : 0 });
-  $over.classList.add('on'); tone(330, 0.5, 'sawtooth', 0.08, 0, 110); buzz([100, 50, 200]);
+  const lv = mode === 'level';
+  if (!revived) offerRewarded('revive');
+  log(lv ? 'level_fail' : 'game_over', { level: lv ? lvl.n : 0, reason: 'no_space', score, best, duration_s: (Date.now() - gameStartT) / 1e3 | 0, near_miss: !lv && best && !newBest && score >= best * 0.85 ? 1 : 0, revived: revived ? 1 : 0 });
+  showCard({
+    title: '¡Sin espacio!', count: score,
+    sub: lv ? goalsHTML(lvl, gemsGot, iceGot, score) : newBest ? '🏆 ¡Nuevo récord!' : '👑 Récord: ' + best,
+    near: lv ? nearLevel() : !newBest && best > score ? `¡Te faltaron ${best - score} puntos para tu récord!` : '',
+    buttons: endButtons(revived ? [] : [{ label: '▶ Revivir (anuncio)', cls: 'b1', countdown: 5, fn: revive }]),
+  });
+  tone(330, 0.5, 'sawtooth', 0.08, 0, 110); buzz([100, 50, 200]);
 }
-$rev.onclick = () => {
-  clearInterval(reviveTimer); $over.classList.remove('on'); ls('pp_rw_accept', (+ls('pp_rw_accept') || 0) + 1);
-  fakeAd('Anuncio con recompensa', () => {
-    AdPacer.shown('rewarded'); revived = true; isOver = false;
-    for (let R = 2; R < 6; R++) { beams.push({ row: true, i: R, life: 1, color: '#1fe08a' }); for (let C = 0; C < N; C++) if (grid[R][C]) { const { x, y } = cellXY(R, C); pops.push({ x, y, ci: grid[R][C], life: 1, delay: C * 0.02 }); burst(x + cs / 2, y + cs / 2, hex(grid[R][C]), 8); grid[R][C] = 0; } }
+function revive() {
+  watchRewarded(() => {
+    revived = true; isOver = false;
+    for (let R = 2; R < 6; R++) {
+      beams.push({ row: true, i: R, life: 1, color: '#1fe08a' });
+      for (let C = 0; C < N; C++) if (grid[R][C]) { const h = { r: R, c: C, ...hitCell(board, R, C, true) }; hitFx(h, C * 0.02); if (h.gem) gemsGot++; if (h.ice) iceGot++; }
+    }
     if (!tray.some(t => t && fitsAnywhere(grid, t.cells))) newTray();
     say('¡SEGUNDA VIDA!', cs * 0.85, '#1fe08a'); shake = 16; flash = 0.4; flashColor = '#1fe08a'; whoosh(0.3, 0.5);
+    afterMove();
   });
-};
-document.getElementById('bAgain').onclick = () => {
-  clearInterval(reviveTimer); $over.classList.remove('on');
-  const go = () => { isOver = false; newGame(); };
-  AdPacer.decide() ? fakeAd('Anuncio', () => { AdPacer.shown('interstitial'); go(); }) : go();
-};
+}
+function outOfMoves() {
+  if (isOver || won || movesLeft > 0) return;
+  isOver = true;
+  log('level_fail', { level: lvl.n, reason: 'moves', score, gems: gemsGot, ice: iceGot, plus_used: plusUsed ? 1 : 0 });
+  if (!plusUsed) offerRewarded('plus5');
+  showCard({
+    title: '¡Sin movimientos!', count: score, sub: goalsHTML(lvl, gemsGot, iceGot, score), near: nearLevel(),
+    buttons: endButtons(plusUsed ? [] : [{ label: '▶ +5 movimientos (anuncio)', cls: 'b1', countdown: 6, fn: () => watchRewarded(() => {
+      plusUsed = true; movesLeft += 5; isOver = false; say('+5 MOVIMIENTOS', cs * 0.8, '#1fe08a'); flash = 0.3; flashColor = '#1fe08a'; whoosh(0.3, 0.5);
+      log('plus_moves', { level: lvl.n }); afterMove();
+    }) }]),
+  });
+  tone(330, 0.5, 'sawtooth', 0.08, 0, 110); buzz([100, 50, 200]);
+}
+function levelWon() {
+  won = true; isOver = true; drag = null; armed = null; renderBar();
+  const left = movesLeft, bonus = left * 40;
+  say('¡OBJETIVO CUMPLIDO!', cs * 0.8, '#1fe08a', undefined, 1.6); confettiRain(150); flash = 0.35; flashColor = '#1fe08a';
+  [0, 4, 7, 12, 16].forEach((s, j) => tone(523 * Math.pow(2, s / 12), 0.3, 'triangle', 0.15, j * 0.09)); buzz([60, 40, 60, 40, 150]);
+  if (bonus) setTimeout(() => { score += bonus; scorePulse = 1; say(`+${bonus} bonus · ${left} mov.`, cs * 0.6, '#ffd60a', by + cs * 5.2, 1.4); tone(880, 0.2, 'sine', 0.12, 0, 1760); }, 800);
+  setTimeout(victory, 1900);
+}
+function victory() {
+  const n = lvl.n, st = starsFor(score);
+  if (st > (starsMap[n] || 0)) { starsMap[n] = st; ls('pp_stars', JSON.stringify(starsMap)); }
+  if (n >= unlocked) { unlocked = n + 1; ls('pp_level', unlocked); }
+  log('level_win', { level: n, score, stars: st, moves_left: movesLeft, plus_used: plusUsed ? 1 : 0, revived: revived ? 1 : 0 });
+  showCard({ title: `¡Nivel ${n} superado!`, big: '⭐'.repeat(st) + '☆'.repeat(3 - st), sub: `Puntuación: ${score}`,
+    buttons: [{ label: `Nivel ${n + 1} ▶`, cls: 'b1', fn: () => withAd(() => startLevel(n + 1)) }, { label: '🗺️ Mapa', cls: 'b3', fn: openMap }] });
+}
+function showMenu() {
+  isOver = true; $map.classList.remove('on');
+  showCard({ title: 'Prisma Pop', logo: true, big: '💎', sub: 'Elige modo de juego', buttons: [
+    { label: `🗺️ Aventura · Nivel ${unlocked}`, cls: 'b1', fn: openMap },
+    { label: `♾️ Clásico · Récord ${best}`, cls: 'b2', fn: startClassic }] });
+}
+function openMap() {
+  hideCard(); isOver = true;
+  const $p = document.getElementById('path');
+  $p.innerHTML = Array.from({ length: unlocked + 15 }, (_, i) => {
+    const n = i + 1, st = starsMap[n] || 0, lock = n > unlocked, x = Math.round(Math.sin(n * 0.9) * 90);
+    return `<button class="node${n % 10 ? '' : ' boss'}${n === unlocked ? ' cur' : ''}${lock ? ' lock' : ''}" data-n="${n}" style="left:${x}px" ${lock ? 'disabled' : ''} aria-label="Nivel ${n}">${lock ? '🔒' : n}<small>${lock ? '' : '⭐'.repeat(st) + '☆'.repeat(3 - st)}</small></button>`;
+  }).join('');
+  $map.classList.add('on');
+  const cur = $p.querySelector('.cur'); if (cur) cur.scrollIntoView({ block: 'center' });
+}
+const TIPS = { stones: '🪨 La piedra no se rompe: completa la línea con ella dentro. Solo la 💣 la destruye.', gems: '💎 Borra la línea de cada gema para recogerla.', ice: '🧊 Borra la línea del hielo para romperlo (el doble aguanta 2).' };
+function levelIntro(n) {
+  const L = getLevel(n), tips = ['stones', 'gems', 'ice'].filter(k => k === 'stones' ? L.B.g.flat().includes(STONE) : L.goals[k]).map(k => `<div style="margin-top:6px;font-size:14px">${TIPS[k]}</div>`).join('');
+  showCard({ title: `Nivel ${n}${n % 10 ? '' : ' 👑'}`, big: String(L.moves), sub: `movimientos${goalsHTML(L)}${tips}`,
+    buttons: [{ label: '▶ Jugar', cls: 'b1', fn: () => startLevel(n) }, { label: 'Volver', fn: () => {} }] });
+}
+document.getElementById('path').onclick = e => { const b = e.target.closest('.node'); if (!b || b.disabled) return; ensureAudio(); tone(600, 0.06, 'sine', 0.1, 0, 900); levelIntro(+b.dataset.n); };
+document.getElementById('mapBack').onclick = () => { ensureAudio(); showMenu(); };
 
 // ---------- layout & input ----------
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
@@ -452,7 +545,7 @@ function dragTarget() {
 }
 cv.addEventListener('pointerdown', e => {
   ensureAudio();
-  if (isOver) return;
+  if (isOver || won || (mode === 'level' && movesLeft <= 0)) return;
   if (armed) {
     const r = Math.floor((e.clientY - by) / cs), c = Math.floor((e.clientX - bx) / cs);
     if (r >= 0 && r < N && c >= 0 && c < N) useBoost(armed, r, c); else { armed = null; renderBar(); }
@@ -490,8 +583,14 @@ function gemSprite(ci, s) {
   const q = s * 0.18; gr = g.createLinearGradient(0, q, 0, s - q); gr.addColorStop(0, base); gr.addColorStop(1, light);
   g.globalAlpha = 0.6; g.fillStyle = gr; g.beginPath(); g.roundRect(q, q, s - 2 * q, s - 2 * q - s * 0.03, r * 0.6); g.fill(); g.globalAlpha = 1;
   g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = Math.max(1, s * 0.025); g.beginPath(); g.roundRect(p + 1, p + 1, w - 2, w - 2 - s * 0.04, r); g.stroke();
-  g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.ellipse(s * 0.34, s * 0.27, s * 0.17, s * 0.07, -0.5, 0, 7); g.fill();
-  g.fillStyle = 'rgba(255,255,255,.95)'; g.beginPath(); g.arc(s * 0.72, s * 0.68, s * 0.035, 0, 7); g.fill();
+  if (ci === STONE) { // riveted metal-stone plate, no shine
+    g.fillStyle = 'rgba(30,32,40,.55)'; [[0.27, 0.27], [0.73, 0.27], [0.27, 0.7], [0.73, 0.7]].forEach(([a, b]) => { g.beginPath(); g.arc(s * a, s * b, s * 0.06, 0, 7); g.fill(); });
+    g.strokeStyle = 'rgba(30,32,40,.4)'; g.lineWidth = s * 0.04; g.beginPath(); g.moveTo(s * 0.3, s * 0.48); g.lineTo(s * 0.7, s * 0.48); g.stroke();
+  } else {
+    g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.ellipse(s * 0.34, s * 0.27, s * 0.17, s * 0.07, -0.5, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.95)'; g.beginPath(); g.arc(s * 0.72, s * 0.68, s * 0.035, 0, 7); g.fill();
+  }
+  if (ci === ICE) { g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = s * 0.05; g.beginPath(); g.moveTo(s * 0.25, s * 0.62); g.lineTo(s * 0.5, s * 0.37); g.moveTo(s * 0.45, s * 0.75); g.lineTo(s * 0.72, s * 0.48); g.stroke(); }
   sprites.set(key, c); return c;
 }
 function gem(x, y, s, ci, a = 1, sc = 1) {
@@ -500,6 +599,15 @@ function gem(x, y, s, ci, a = 1, sc = 1) {
 }
 function drawPiece(p, x, y, s, a = 1, sc = 1) { p.cells.forEach(([r, c]) => gem(x + c * s, y + r * s, s, p.color, a, sc)); }
 function star(x, y, r) { ctx.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r * 0.35 : r; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } ctx.fill(); }
+// drawn gem (emoji in canvas is not reliable on every device)
+function diamond(x, y, r) {
+  ctx.save(); ctx.shadowColor = '#9becff'; ctx.shadowBlur = r * 0.8;
+  const g = ctx.createLinearGradient(x, y - r, x, y + r); g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, '#8be8ff'); g.addColorStop(1, '#1a8fd6');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.25); ctx.lineTo(x - r * 0.55, y - r * 0.75); ctx.lineTo(x + r * 0.55, y - r * 0.75); ctx.lineTo(x + r, y - r * 0.25); ctx.lineTo(x, y + r); ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = Math.max(1, r * 0.1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.25); ctx.lineTo(x + r, y - r * 0.25); ctx.moveTo(x - r * 0.3, y - r * 0.25); ctx.lineTo(x, y + r); ctx.lineTo(x + r * 0.3, y - r * 0.25); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.stroke();
+  ctx.restore();
+}
 const easeBack = k => 1 + 2.7 * Math.pow(k - 1, 3) + 1.7 * Math.pow(k - 1, 2);
 
 let lastT = performance.now();
@@ -530,16 +638,28 @@ function frame(now) {
   // HUD
   shownScore += (score - shownScore) * Math.min(1, dt * 12); scorePulse = Math.max(0, scorePulse - dt * 3);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.save(); ctx.translate(W / 2, by * 0.47); ctx.scale(1 + scorePulse * 0.35, 1 + scorePulse * 0.35);
+  const lv = mode === 'level' && lvl, low = lv && movesLeft <= 3;
+  // classic: big score; adventure: big moves left (red and pulsing when 3 or fewer)
+  const bigTxt = lv ? movesLeft : Math.round(shownScore), bigScale = lv ? 1 + (low ? Math.sin(T * 9) * 0.08 : 0) : 1 + scorePulse * 0.35;
+  ctx.save(); ctx.translate(W / 2, by * 0.47); ctx.scale(bigScale, bigScale);
   ctx.font = `700 ${Math.round(cs * 1.05)}px Fredoka, system-ui`;
-  ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.strokeText(Math.round(shownScore), 0, 4);
-  const sg = ctx.createLinearGradient(0, -cs * 0.5, 0, cs * 0.5); sg.addColorStop(0, '#ffffff'); sg.addColorStop(1, newBest ? '#ffd60a' : '#b7e6ff');
-  ctx.shadowColor = newBest ? '#ffb700' : '#5ac8ff'; ctx.shadowBlur = 18 + scorePulse * 30; ctx.fillStyle = sg; ctx.fillText(Math.round(shownScore), 0, 0);
+  ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.strokeText(bigTxt, 0, 4);
+  const gold = !lv && newBest, sg = ctx.createLinearGradient(0, -cs * 0.5, 0, cs * 0.5); sg.addColorStop(0, '#ffffff'); sg.addColorStop(1, low ? '#ff3b5c' : gold ? '#ffd60a' : '#b7e6ff');
+  ctx.shadowColor = low ? '#ff2a55' : gold ? '#ffb700' : '#5ac8ff'; ctx.shadowBlur = 18 + scorePulse * 30; ctx.fillStyle = sg; ctx.fillText(bigTxt, 0, 0);
   ctx.restore();
   ctx.font = `600 ${Math.round(cs * 0.36)}px Fredoka, system-ui`;
-  pill(bx, by * 0.15, '👑 ' + best, '#ffd60a', 'left');
-  pill(bx + cs * N, by * 0.15, '🔥 ' + dayStreak + (dayStreak === 1 ? ' día' : ' días'), '#ff9f1c', 'right');
-  if (streak > 1) { ctx.font = `700 ${Math.round(cs * 0.42)}px Fredoka, system-ui`; ctx.fillStyle = hex(1 + streak % 7); ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 14; ctx.fillText((fire ? '🔥 ' : '') + 'RACHA x' + streak, W / 2, by - 24); ctx.shadowBlur = 0; }
+  if (lv) {
+    pill(bx, by * 0.15, `Nivel ${lvl.n}`, lvl.n % 10 ? '#cbb6ff' : '#ff9db0', 'left');
+    const st = starsFor(Math.round(shownScore));
+    pill(bx + cs * N, by * 0.15, `${'⭐'.repeat(st)}${'☆'.repeat(3 - st)} ${Math.round(shownScore)}/${lvl.target}`, score >= lvl.target ? '#1fe08a' : '#ffd60a', 'right');
+    const g = [lvl.goals.gems && `💎 ${Math.min(gemsGot, lvl.goals.gems)}/${lvl.goals.gems}`, lvl.goals.ice && `🧊 ${Math.min(iceGot, lvl.goals.ice)}/${lvl.goals.ice}`].filter(Boolean).join('    ');
+    ctx.font = `700 ${Math.round(cs * 0.42)}px Fredoka, system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+    ctx.fillText(g || (streak > 1 ? '' : 'movimientos'), W / 2, by - 24);
+  } else {
+    pill(bx, by * 0.15, '👑 ' + best, '#ffd60a', 'left');
+    pill(bx + cs * N, by * 0.15, '🔥 ' + dayStreak + (dayStreak === 1 ? ' día' : ' días'), '#ff9f1c', 'right');
+  }
+  if (streak > 1 && !(lv && (lvl.goals.gems || lvl.goals.ice))) { ctx.font = `700 ${Math.round(cs * 0.42)}px Fredoka, system-ui`; ctx.fillStyle = hex(1 + streak % 7); ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 14; ctx.fillText((fire ? '🔥 ' : '') + 'RACHA x' + streak, W / 2, by - 24); ctx.shadowBlur = 0; }
 
   // board (with punch zoom)
   punch *= Math.pow(0.002, dt);
@@ -557,6 +677,10 @@ function frame(now) {
     ctx.beginPath(); ctx.roundRect(x + cs * .05, y + cs * .05, cs * .9, cs * .9, cs * .2); ctx.fill();
     if (hl.has(r * N + c)) { gem(x, y, cs, tray[drag.i].color, 1, 1.04 + Math.sin(now / 70) * 0.04); }
     else if (grid[r][c]) { const age = (now - landT[r][c]) / 1000; const sc = age < 0.3 ? 1 + Math.sin(age / 0.3 * Math.PI) * 0.18 * (1 - age / 0.3) : 1; gem(x, y, cs, grid[r][c], 1, sc); }
+    if (grid[r][c] === ICE && board.hp[r][c] > 1) { // double ice: thick frosty frame
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = cs * 0.08; ctx.beginPath(); ctx.roundRect(x + cs * .12, y + cs * .12, cs * .76, cs * .72, cs * .16); ctx.stroke();
+    }
+    if (board.gem[r][c]) diamond(x + cs / 2, y + cs / 2, cs * (0.3 + Math.sin(now / 220 + r + c) * 0.02));
   }
   if (hl.size) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25 + Math.sin(now / 70) * 0.15; hl.forEach(k => { const { x, y } = cellXY(k / N | 0, k % N); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.roundRect(x + cs * .05, y + cs * .05, cs * .9, cs * .9, cs * .2); ctx.fill(); }); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
   if (t && t.ok) tray[drag.i].cells.forEach(([dr, dc]) => { const { x, y } = cellXY(t.r + dr, t.c + dc); gem(x, y, cs, tray[drag.i].color, 0.4); });
@@ -650,15 +774,8 @@ function pill(x, y, txt, color, align) {
   ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(txt, x0 + w / 2, y + 1);
 }
 
-// ---------- self-check (open with ?test) ----------
-if (location.search.includes('test')) {
-  const g = emptyGrid(); console.assert(SHAPES.length > 20, 'shapes');
-  for (let c = 0; c < 7; c++) g[3][c] = 1;
-  console.assert(fits(g, [[0, 0]], 3, 7) && !fits(g, [[0, 0]], 3, 0) && !fits(g, [[0, 0], [0, 1]], 0, 7), 'fits');
-  const L = linesIfPlaced(g, [[0, 0]], 3, 7); console.assert(L.rows.length === 1 && L.rows[0] === 3 && !L.cols.length, 'lines');
-  console.log('PRISMA TESTS DONE');
-}
-resize(); newGame(); requestAnimationFrame(frame);
+// rule tests live in test.html
+resize(); renderBar(); showMenu(); requestAnimationFrame(frame);
 </script>
 </body>
 </html>
