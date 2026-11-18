@@ -2,7 +2,8 @@
 // Prisma Pop core: board rules, scoring, piece dealing, level generator and validation bot. Pure logic, no DOM.
 // N is the current board size; adventure levels change it (6-10), every rule below reads it at call time
 let N = 8;
-const STONE = 8, ICE = 9, NCOL = 7;
+const STONE = 8, ICE = 9, VOID = 10, NCOL = 7; // VOID: cell outside a shaped board, never playable, never cleared
+const isObstacleOnly = v => v === STONE || v === VOID;
 function withSize(n, fn) { const old = N; N = n; try { return fn(); } finally { N = old; } }
 
 // ---------- shapes ----------
@@ -30,8 +31,8 @@ function fullLines(g) {
     let rf = true, rs = true, cf = true, csx = true;
     for (let j = 0; j < N; j++) {
       const a = g[i][j], b = g[j][i];
-      if (!a) rf = false; else if (a !== STONE) rs = false;
-      if (!b) cf = false; else if (b !== STONE) csx = false;
+      if (!a) rf = false; else if (!isObstacleOnly(a)) rs = false;
+      if (!b) cf = false; else if (!isObstacleOnly(b)) csx = false;
     }
     if (rf && !rs) rows.push(i); if (cf && !csx) cols.push(i);
   }
@@ -41,7 +42,7 @@ function linesIfPlaced(g, cs, r, c) { const t = g.map(row => row.slice()); cs.fo
 // hit one cell; force = bomb (also breaks stone and whole ice)
 function hitCell(B, r, c, force) {
   const v = B.g[r][c], out = { color: v, removed: false, cracked: false, gem: false, ice: false };
-  if (!v || (v === STONE && !force)) return out;
+  if (!v || v === VOID || (v === STONE && !force)) return out;
   if (v === ICE && !force && --B.hp[r][c] > 0) { out.cracked = true; return out; }
   if (v === ICE) out.ice = true;
   if (B.gem[r][c]) { out.gem = true; B.gem[r][c] = false; }
@@ -56,7 +57,9 @@ function applyMove(B, cells, color, r, c) {
   const hits = [...keys].map(k => ({ r: k / N | 0, c: k % N, ...hitCell(B, k / N | 0, k % N, false) }));
   return { n: rows.length + cols.length, rows, cols, hits, gems: hits.filter(h => h.gem).length, ice: hits.filter(h => h.ice).length };
 }
-const isEmpty = g => g.every(row => row.every(v => !v));
+const isEmpty = g => g.every(row => row.every(v => !v || v === VOID));
+// share of playable cells that are taken (VOID cells are not part of the board)
+function fillRatio(g) { let f = 0, p = 0; for (const row of g) for (const v of row) if (v !== VOID) { p++; if (v) f++; } return p ? f / p : 0; }
 
 // ---------- scoring ----------
 const linePoints = (n, streak) => n ? (n === 1 ? 20 : n * n * 15) * (1 + Math.max(0, streak - 1) * 0.5) | 0 : 0;
@@ -66,7 +69,7 @@ const nextStreak = (s, idle, n) => n ? [s + 1, 0] : idle + 1 >= 3 ? [0, idle + 1
 // ---------- pieces ----------
 function randPiece(rnd, d) { const pool = rnd() < d * 0.4 ? BIG : SHAPES; return { cells: pool[rnd() * pool.length | 0], color: 1 + (rnd() * NCOL | 0) }; }
 function dealTray(g, rnd, d) {
-  const fill = g.flat().filter(Boolean).length / (N * N);
+  const fill = fillRatio(g);
   const tray = [0, 1, 2].map(() => {
     let p = randPiece(rnd, d);
     // soft help on a crowded board, fading out as difficulty rises
@@ -102,11 +105,13 @@ function levelLayout(n, attempt = 0) {
     spec = { goal, stones: Math.round(d * 5 + R() * 2), prefill: 2 + Math.round(R() * 6),
       gems: goal === 'gems' || goal === 'mix' ? 3 + Math.round(d * 4) : 0, ice: goal === 'ice' || goal === 'mix' ? 3 + Math.round(d * 5) : 0 };
   }
-  const area = N * N / 64; // obstacles scale with the board
+  spec.shape = attempt >= 3 ? 'square' : levelShape(n); // still too hard after 3 tries: drop the shape
+  const B = newBoard();
+  if (spec.shape !== 'square') for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (MASKS[spec.shape](r, c)) B.g[r][c] = VOID;
+  const area = (N * N - B.g.flat().filter(v => v === VOID).length) / 64; // obstacles scale with the playable area
   if (n > TUTORIAL.length) ['stones', 'prefill', 'gems', 'ice'].forEach(k => spec[k] = Math.round(spec[k] * area));
   spec.stones = Math.round(spec.stones * ease); spec.prefill = Math.round(spec.prefill * ease);
   if (attempt) { spec.ice = Math.max(spec.ice ? 2 : 0, Math.round(spec.ice * ease)); spec.gems = Math.max(spec.gems ? 2 : 0, Math.round(spec.gems * ease)); }
-  const B = newBoard();
   const stonesIn = (r, c) => { let k = 0; for (let j = 0; j < N; j++) k += (B.g[r][j] === STONE) + (B.g[j][c] === STONE); return k; };
   const put = (count, val, after) => {
     for (let tries = 0, k = 0; k < count && tries < 400; tries++) {
@@ -121,7 +126,7 @@ function levelLayout(n, attempt = 0) {
   };
   const col = () => 1 + (R() * NCOL | 0);
   put(spec.stones, () => STONE);
-  put(spec.ice, () => ICE, (r, c) => B.hp[r][c] = d >= 0.45 || n === 9 ? 2 : 1); // double ice only on hard levels (and level 9 teaches it)
+  put(spec.ice, () => ICE, (r, c) => B.hp[r][c] = attempt < 5 && (d >= 0.45 || n === 9) ? 2 : 1); // double ice only on hard levels (and level 9 teaches it); last resort: single
   put(spec.gems, col, (r, c) => B.gem[r][c] = true);
   put(spec.prefill, col);
   return { n, d, spec, B };
@@ -135,8 +140,9 @@ function evalMove(B, p, r, c) {
   const hit = (R, C) => { if (B.gem[R][C] && g[R][C] && g[R][C] !== STONE) prog++; if (g[R][C] === ICE) prog += B.hp[R][C] === 1 ? 1 : 0.4; };
   rows.forEach(R => { for (let C = 0; C < N; C++) hit(R, C); });
   cols.forEach(C => { for (let R = 0; R < N; R++) hit(R, C); });
-  rows.forEach(R => { for (let C = 0; C < N; C++) if (g[R][C] !== STONE && g[R][C] !== ICE) g[R][C] = 0; });
-  cols.forEach(C => { for (let R = 0; R < N; R++) if (g[R][C] !== STONE && g[R][C] !== ICE) g[R][C] = 0; });
+  const stays = v => v === STONE || v === ICE || v === VOID;
+  rows.forEach(R => { for (let C = 0; C < N; C++) if (!stays(g[R][C])) g[R][C] = 0; });
+  cols.forEach(C => { for (let R = 0; R < N; R++) if (!stays(g[R][C])) g[R][C] = 0; });
   let holes = 0, rough = 0, empty = 0;
   for (let R = 0; R < N; R++) for (let C = 0; C < N; C++) if (!g[R][C]) {
     empty++;
@@ -167,6 +173,18 @@ function botPlay(B0, rnd, d, cap, goals) {
 const quant = (a, q) => { const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.max(0, Math.floor(q * s.length)))]; };
 const round10 = x => Math.max(10, Math.round(x / 10) * 10);
 // moves and target come from bot runs: share w of runs must win (easy 85 % to boss 30 %)
+// board shapes: true = cell is outside the board (VOID). Read N at call time.
+const MASKS = {
+  cross: (r, c) => { const k = Math.max(1, N >> 2); return (r < k || r >= N - k) && (c < k || c >= N - k); },
+  corners: (r, c) => Math.min(r, N - 1 - r) + Math.min(c, N - 1 - c) < (N >= 8 ? 2 : 1),
+  hole: (r, c) => { const s = N >= 9 ? (N & 1 ? 3 : 2) : (N & 1 ? 1 : 2), a = (N - s) >> 1; return r >= a && r < a + s && c >= a && c < a + s; },
+  diamond: (r, c) => Math.abs(r - (N - 1) / 2) + Math.abs(c - (N - 1) / 2) > (N - 1) / 2 + 1.5,
+};
+function levelShape(n) {
+  if (n <= TUTORIAL.length) return 'square';
+  const opts = ['square', 'square', 'corners', 'hole', ...(N >= 7 ? ['cross'] : []), ...(N >= 9 ? ['diamond'] : [])];
+  return opts[mulberry32(n * 2203 + 17)() * opts.length | 0];
+}
 // board size per level: tutorial 8x8, then from the seed (small = less room, big = longer lines)
 const SIZES = [6, 7, 8, 8, 9, 10];
 const levelSize = n => n <= TUTORIAL.length ? 8 : SIZES[mulberry32(n * 3571 + 5)() * SIZES.length | 0];
@@ -175,7 +193,7 @@ const makeLevel = (n, runs) => withSize(levelSize(n), () => ({ ...buildLevel(n, 
 function buildLevel(n, runs = 14) {
   const CAP = 45, d = levelDiff(n), pd = d * 0.6;
   let L, res, goals, share = 0, attempt = 0;
-  for (; attempt < 5; attempt++) {
+  for (; attempt < 7; attempt++) {
     L = levelLayout(n, attempt); goals = { gems: L.spec.gems, ice: L.spec.ice };
     const rnd = mulberry32(n * 31 + 7 + attempt);
     res = Array.from({ length: runs }, () => botPlay(L.B, rnd, pd, CAP, goals));
@@ -187,7 +205,7 @@ function buildLevel(n, runs = 14) {
   moves = Math.max(10, Math.min(CAP, Math.ceil((isFinite(moves) ? moves : CAP) * (1.15 - d * 0.1))));
   const atM = res.map(x => x.scores[moves - 1]);
   const target = obj ? Math.max(round10(quant(atM, 0.15)), round10(moves * 5)) : round10(quant(atM, 1 - w));
-  return { n, d, moves, target, goals, B: L.B, spec: L.spec, stars: [target, round10(target * 1.35), round10(target * 1.75)], botWin: +w.toFixed(2), attempt: Math.min(attempt, 4) };
+  return { n, d, moves, target, goals, B: L.B, spec: L.spec, stars: [target, round10(target * 1.35), round10(target * 1.75)], botWin: +w.toFixed(2), attempt: Math.min(attempt, 6) };
 }
 
 if (typeof module !== 'undefined') module.exports = { N, STONE, ICE, SHAPES, fits, fullLines, hitCell, applyMove, newBoard, makeLevel, levelLayout };

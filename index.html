@@ -107,7 +107,7 @@ let unlocked = +ls('pp_level') || 1, starsMap = {}; try { starsMap = JSON.parse(
 const difficulty = () => mode === 'level' ? lvl.d * 0.6 : Math.min(1, score / 4000);
 function newTray() { tray = dealTray(grid, Math.random, difficulty()); trayIn = 0; }
 function newGame() {
-  board = mode === 'level' ? cloneBoard(lvl.B) : newBoard(); grid = board.g; landT = emptyGrid();
+  board = mode === 'level' ? cloneBoard(lvl.B) : newBoard(); grid = board.g; landT = emptyGrid(); buildBoardPath();
   score = 0; shownScore = 0; streak = 0; movesNoClear = 0; revived = false; newBest = false; recordShown = false; oldBest = best; gameStartT = Date.now();
   movesLeft = lvl ? lvl.moves : 0; gemsGot = 0; iceGot = 0; plusUsed = false; won = false; isOver = false;
   S.games++; newTray();
@@ -171,7 +171,7 @@ const Music = {
   tick() {
     if (AC.state !== 'running') return;
     const fire = streak >= 3, sp = 60 / (fire ? 128 : 108) / 4;
-    this.lp.frequency.setTargetAtTime(grid && danger(grid.flat().filter(Boolean).length / (N * N)) ? 700 : 12000, AC.currentTime, 0.3);
+    this.lp.frequency.setTargetAtTime(grid && danger(fillRatio(grid)) ? 700 : 12000, AC.currentTime, 0.3);
     if (this.next < AC.currentTime) this.next = AC.currentTime + 0.05; // resync after a pause
     while (this.next < AC.currentTime + 0.12) { this.play(this.step, this.next, fire); this.next += sp; this.step = (this.step + 1) % 64; }
   },
@@ -349,8 +349,8 @@ function boostTargets(k, r, c) {
   const t = [];
   if (r < 0 || r >= N || c < 0 || c >= N) return t;
   const v = grid[r][c];
-  if (k === 'hammer' && v && v !== STONE) t.push([r, c]);
-  if (k === 'bomb') for (let R = r - 1; R <= r + 1; R++) for (let C = c - 1; C <= c + 1; C++) if (R >= 0 && R < N && C >= 0 && C < N && grid[R][C]) t.push([R, C]);
+  if (k === 'hammer' && v && v !== STONE && v !== VOID) t.push([r, c]);
+  if (k === 'bomb') for (let R = r - 1; R <= r + 1; R++) for (let C = c - 1; C <= c + 1; C++) if (R >= 0 && R < N && C >= 0 && C < N && grid[R][C] && grid[R][C] !== VOID) t.push([R, C]);
   if (k === 'prism' && v && v < STONE) for (let R = 0; R < N; R++) for (let C = 0; C < N; C++) if (grid[R][C] === v) t.push([R, C]);
   return t;
 }
@@ -513,9 +513,10 @@ function openMap() {
   const cur = $p.querySelector('.cur'); if (cur) cur.scrollIntoView({ block: 'center' });
 }
 const TIPS = { stones: '🪨 La piedra no se rompe: completa la línea con ella dentro. Solo la 💣 la destruye.', gems: '💎 Borra la línea de cada gema para recogerla.', ice: '🧊 Borra la línea del hielo para romperlo (el doble aguanta 2).' };
+const SHAPE_NAMES = { square: '', cross: ' en cruz', corners: ' con esquinas recortadas', hole: ' con agujero', diamond: ' en rombo' };
 function levelIntro(n) {
   const L = getLevel(n), tips = ['stones', 'gems', 'ice'].filter(k => k === 'stones' ? L.B.g.flat().includes(STONE) : L.goals[k]).map(k => `<div style="margin-top:6px;font-size:14px">${TIPS[k]}</div>`).join('');
-  showCard({ title: `Nivel ${n}${n % 10 ? '' : ' 👑'}`, big: String(L.moves), sub: `movimientos · tablero ${L.size}×${L.size}${L.size < 8 ? ' (¡poco espacio!)' : L.size > 8 ? ' (líneas más largas)' : ''}${goalsHTML(L)}${tips}`,
+  showCard({ title: `Nivel ${n}${n % 10 ? '' : ' 👑'}`, big: String(L.moves), sub: `movimientos · tablero ${L.size}×${L.size}${SHAPE_NAMES[L.spec.shape]}${L.size < 8 ? ' (¡poco espacio!)' : L.size > 8 ? ' (líneas más largas)' : ''}${goalsHTML(L)}${tips}`,
     buttons: [{ label: '▶ Jugar', cls: 'b1', fn: () => startLevel(n) }, { label: 'Volver', fn: () => {} }] });
 }
 document.getElementById('path').onclick = e => { const b = e.target.closest('.node'); if (!b || b.disabled) return; ensureAudio(); tone(600, 0.06, 'sine', 0.1, 0, 900); levelIntro(+b.dataset.n); };
@@ -541,7 +542,14 @@ function resize() {
   cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   by = Math.max(H * 0.15, 90); cs = Math.floor(Math.min(W * 0.9 / N, (H - by - 70) / (N + 4), (H - by - 70) / 12 * 1.15)); bx = (W - cs * N) / 2; trayY = by + cs * N + cs * 0.9;
   $bar.style.top = (trayY + cs * 3.1) + 'px'; $pause.style.top = Math.max(4, by * 0.15 - 21) + 'px'; $hint.style.top = (trayY + cs * 2.45) + 'px';
-  sprites.clear();
+  sprites.clear(); buildBoardPath();
+}
+let boardPath = null; // union of playable cells, only for shaped boards
+function buildBoardPath() {
+  boardPath = null;
+  if (!grid || grid.length !== N || !grid.flat().includes(VOID)) return; // size just changed: newGame rebuilds it
+  boardPath = new Path2D();
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (grid[r][c] !== VOID) boardPath.roundRect(bx + c * cs - 6, by + r * cs - 6, cs + 12, cs + 12, 10);
 }
 addEventListener('resize', resize);
 const cellXY = (r, c) => ({ x: bx + c * cs, y: by + r * cs });
@@ -626,7 +634,7 @@ function frame(now) {
   let dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
   if (freeze > 0) { freeze -= dt * 1000; dt *= 0.08; } // hit-stop: near-frozen world
   const fire = streak >= 3, T = now / 1000;
-  const fill = grid.flat().filter(Boolean).length / (N * N);
+  const fill = fillRatio(grid);
 
   // background
   const hue = fire ? 300 + Math.sin(T * 2) * 40 : 262 + Math.sin(T * 0.2) * 14;
@@ -678,11 +686,16 @@ function frame(now) {
   ctx.save(); ctx.translate(cx, cy); ctx.scale(1 + punch, 1 + punch); ctx.translate(-cx, -cy);
   const glow = fire ? `hsl(${(T * 200) % 360},100%,60%)` : danger(fill) ? '#ff2a55' : '#7f5cff';
   ctx.shadowColor = glow; ctx.shadowBlur = fire ? 40 : danger(fill) ? 20 + Math.sin(T * 8) * 12 : 22;
-  ctx.fillStyle = 'rgba(12,4,34,.72)'; ctx.beginPath(); ctx.roundRect(bx - 10, by - 10, cs * N + 20, cs * N + 20, 20); ctx.fill();
-  ctx.shadowBlur = 0; ctx.lineWidth = 2.5; ctx.strokeStyle = glow; ctx.globalAlpha = 0.8; ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(12,4,34,.72)';
+  if (boardPath) { ctx.fill(boardPath); ctx.shadowBlur = 0; } // shaped board: the panel follows the shape
+  else {
+    ctx.beginPath(); ctx.roundRect(bx - 10, by - 10, cs * N + 20, cs * N + 20, 20); ctx.fill();
+    ctx.shadowBlur = 0; ctx.lineWidth = 2.5; ctx.strokeStyle = glow; ctx.globalAlpha = 0.8; ctx.stroke(); ctx.globalAlpha = 1;
+  }
   const t = drag ? dragTarget() : null, hl = new Set();
   if (t && t.ok) { const L = linesIfPlaced(grid, tray[drag.i].cells, t.r, t.c); L.rows.forEach(R => { for (let C = 0; C < N; C++) hl.add(R * N + C); }); L.cols.forEach(C => { for (let R = 0; R < N; R++) hl.add(R * N + C); }); }
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (grid[r][c] === VOID) continue;
     const { x, y } = cellXY(r, c);
     ctx.fillStyle = (r + c) % 2 ? 'rgba(255,255,255,.045)' : 'rgba(255,255,255,.075)';
     ctx.beginPath(); ctx.roundRect(x + cs * .05, y + cs * .05, cs * .9, cs * .9, cs * .2); ctx.fill();

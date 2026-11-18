@@ -16,6 +16,12 @@ r = applyMove(B, [[0, 0]], 1, 0, 7); ok(r.ice === 0 && B.g[0][0] === ICE && B.hp
 for (let c = 1; c < 7; c++) B.g[0][c] = 1; r = applyMove(B, [[0, 0]], 1, 0, 7); ok(r.ice === 1 && B.g[0][0] === 0, 'ice: second clear breaks');
 // gem
 B = newBoard(); for (let c = 0; c < 7; c++) B.g[0][c] = 3; B.gem[0][2] = true; r = applyMove(B, [[0, 0]], 1, 0, 7); ok(r.gems === 1 && !B.gem[0][2], 'gem: collected on clear');
+// VOID: not playable, counts as filled for lines, never removed (not even by bomb)
+B = newBoard(); B.g[0][0] = VOID; B.g[0][7] = VOID; for (let c = 1; c < 6; c++) B.g[0][c] = 1;
+ok(!fits(B.g, [[0, 0]], 0, 0), 'void: cannot place on it');
+r = applyMove(B, [[0, 0]], 2, 0, 6); ok(r.n === 1 && B.g[0][0] === VOID && B.g[0][7] === VOID && B.g[0][3] === 0, 'void: short line clears, void stays');
+ok(hitCell(B, 0, 0, true).removed === false && isEmpty(B.g) && fillRatio(B.g) === 0, 'void: bomb ignores it, empty board ignores it');
+B = newBoard(); for (let c = 0; c < N; c++) B.g[2][c] = c % 2 ? VOID : STONE; ok(fullLines(B.g).rows.length === 0, 'void: line of only stone/void never clears');
 // bomb breaks stone
 B = newBoard(); B.g[1][1] = STONE; ok(hitCell(B, 1, 1, false).removed === false && hitCell(B, 1, 1, true).removed, 'stone: only bomb breaks it');
 // scoring/streak
@@ -28,10 +34,15 @@ for (let n = 1; n <= 40; n++) {
   const L = makeLevel(n), F = withSize(L.size, () => fullLines(L.B.g));
   if (!(L.moves >= 10 && L.moves <= 50 && L.target >= 10 && !F.rows.length && !F.cols.length && L.B.g.length === L.size)) sane = false;
   const g = L.B.g.flat();
-  rowsTxt.push(`#${String(n).padStart(2)} ${L.size}x${L.size} d=${L.d.toFixed(2)} bot=${L.botWin} try=${L.attempt} ${L.spec.goal.padEnd(5)} moves=${String(L.moves).padStart(2)} target=${String(L.target).padStart(4)} stones=${g.filter(v => v === STONE).length} ice=${g.filter(v => v === ICE).length} gems=${L.B.gem.flat().filter(Boolean).length}`);
+  rowsTxt.push(`#${String(n).padStart(2)} ${L.size}x${L.size} ${L.spec.shape.padEnd(7)} d=${L.d.toFixed(2)} bot=${L.botWin} try=${L.attempt} ${L.spec.goal.padEnd(5)} moves=${String(L.moves).padStart(2)} target=${String(L.target).padStart(4)} stones=${g.filter(v => v === STONE).length} ice=${g.filter(v => v === ICE).length} gems=${L.B.gem.flat().filter(Boolean).length}`);
 }
 ok(sane, 'levels 1-40: moves 10-50, target > 0, no full line at start, board matches size');
 ok(N === 8, 'global board size restored to 8 after generating');
+const hard = Array.from({ length: 80 }, (_, i) => makeLevel(i + 1)).filter(L => L.botWin < 0.29).map(L => L.n);
+ok(!hard.length, 'levels 1-80: bot wins at least ~30% of runs' + (hard.length ? ' — too hard: ' + hard.join(',') : ''));
+const shapes = Array.from({ length: 60 }, (_, i) => makeLevel(i + 11));
+ok(new Set(shapes.map(L => L.spec.shape)).size >= 4, 'levels use at least 4 board shapes: ' + [...new Set(shapes.map(L => L.spec.shape))].join(', '));
+ok(shapes.every(L => L.B.g.every(row => row.some(v => v !== VOID)) && L.B.g.flat().filter(v => v === VOID).length < L.size * L.size / 2), 'shapes: every row playable, void under half the board');
 ok(new Set(Array.from({ length: 40 }, (_, i) => makeLevel(i + 11).size)).size >= 4, 'levels use at least 4 different board sizes');
 ok(t1 - t0 < 400, `level generation time ${(t1 - t0).toFixed(0)} ms (< 400)`);
 document.getElementById('out').textContent = out.join('\n') + '\n\n' + rowsTxt.join('\n');
