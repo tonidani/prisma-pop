@@ -49,12 +49,14 @@ button:active{transform:translateY(4px);box-shadow:none}
 .node.cur{animation:pulse .9s infinite}
 .node.lock{filter:grayscale(1);opacity:.45;cursor:default}
 .node small{position:absolute;left:50%;bottom:-20px;transform:translateX(-50%);font-size:13px;white-space:nowrap;letter-spacing:1px}
+#pause{position:fixed;left:10px;width:42px;height:42px;margin:0;padding:0;border-radius:14px;font-size:18px;z-index:4;background:linear-gradient(#5b33b8,#2e1773);box-shadow:0 4px 0 #1a0b4a;border:2px solid rgba(255,255,255,.15)}
 #hint{position:fixed;left:0;right:0;text-align:center;font-weight:600;color:#ffd60a;z-index:3;pointer-events:none;text-shadow:0 2px 6px #000}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="hint"></div>
+<button id="pause" aria-label="Pausa">⏸</button>
 <div id="bar"></div>
 <div class="ov" id="over"><div class="card">
   <h2 id="cTitle"></h2>
@@ -331,8 +333,7 @@ function renderBar() {
   ls('pp_boosters', JSON.stringify(boosts));
   const ad = canAdBoost();
   $bar.innerHTML = Object.entries(BOOST).map(([k, b]) => `<button data-k="${k}" class="${armed === k ? 'armed' : ''}${!boosts[k] && !ad ? ' empty' : ''}" aria-label="${b.name}">${b.icon}<small>${b.name}</small><b class="${boosts[k] ? '' : ad ? 'ad' : 'none'}">${boosts[k] || (ad ? '▶+1' : '0')}</b></button>`).join('')
-    + `<button data-k="music" class="mus" aria-label="Música" aria-pressed="${Music.on}">${Music.on ? '🔊' : '🔇'}<small>Música</small></button>`
-    + `<button data-k="home" class="mus" aria-label="Salir">🏠<small>Salir</small></button>`;
+    + `<button data-k="music" class="mus" aria-label="Música" aria-pressed="${Music.on}">${Music.on ? '🔊' : '🔇'}<small>Música</small></button>`;
   $hint.textContent = armed ? BOOST[armed].hint : '';
 }
 function grant(k, source) {
@@ -383,7 +384,6 @@ $bar.onclick = e => {
   const btn = e.target.closest('button'); if (!btn) return; const k = btn.dataset.k;
   ensureAudio();
   if (k === 'music') { Music.set(!Music.on); renderBar(); return; }
-  if (k === 'home') { hideCard(); isOver = true; mode === 'level' ? openMap() : showMenu(); return; }
   if (isOver || won) return;
   if (!boosts[k]) { // empty: rewarded ad gives one, within limits
     if (!canAdBoost()) { tone(150, 0.1, 'triangle', 0.08); buzz(20); say(gameAdBoosts >= LIMITS.adBoostsPerGame ? 'Sin más anuncios en esta partida' : 'Vuelve mañana a por más', cs * 0.45, '#ff9db0'); return; }
@@ -520,6 +520,17 @@ function levelIntro(n) {
 }
 document.getElementById('path').onclick = e => { const b = e.target.closest('.node'); if (!b || b.disabled) return; ensureAudio(); tone(600, 0.06, 'sine', 0.1, 0, 900); levelIntro(+b.dataset.n); };
 document.getElementById('mapBack').onclick = () => { ensureAudio(); showMenu(); };
+const $pause = document.getElementById('pause');
+$pause.onclick = () => {
+  ensureAudio(); if (isOver || won) return;
+  isOver = true; drag = null; armed = null; renderBar(); tone(500, 0.08, 'sine', 0.1, 0, 300);
+  const lv = mode === 'level';
+  showCard({ title: 'Pausa', big: '⏸', sub: lv ? goalsHTML(lvl, gemsGot, iceGot, score) : `Puntuación: ${score}`, buttons: [
+    { label: '▶ Continuar', cls: 'b1', fn: () => { isOver = false; } },
+    { label: lv ? 'Reintentar nivel' : 'Reiniciar partida', fn: replay },
+    ...(lv ? [{ label: '🗺️ Mapa', cls: 'b3', fn: openMap }] : []),
+    { label: '🏠 Menú principal', cls: 'b3', fn: showMenu }] });
+};
 
 // ---------- layout & input ----------
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
@@ -529,7 +540,7 @@ function resize() {
   DPR = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight;
   cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   by = Math.max(H * 0.15, 90); cs = Math.floor(Math.min(W * 0.9 / N, (H - by - 70) / 12)); bx = (W - cs * N) / 2; trayY = by + cs * N + cs * 0.9;
-  $bar.style.top = (trayY + cs * 3.1) + 'px'; $hint.style.top = (trayY + cs * 2.45) + 'px';
+  $bar.style.top = (trayY + cs * 3.1) + 'px'; $pause.style.top = Math.max(4, by * 0.15 - 21) + 'px'; $hint.style.top = (trayY + cs * 2.45) + 'px';
   sprites.clear();
 }
 addEventListener('resize', resize);
@@ -649,14 +660,14 @@ function frame(now) {
   ctx.restore();
   ctx.font = `600 ${Math.round(cs * 0.36)}px Fredoka, system-ui`;
   if (lv) {
-    pill(bx, by * 0.15, `Nivel ${lvl.n}`, lvl.n % 10 ? '#cbb6ff' : '#ff9db0', 'left');
+    pill(Math.max(bx, 60), by * 0.15, `Nivel ${lvl.n}`, lvl.n % 10 ? '#cbb6ff' : '#ff9db0', 'left');
     const st = starsFor(Math.round(shownScore));
     pill(bx + cs * N, by * 0.15, `${'⭐'.repeat(st)}${'☆'.repeat(3 - st)} ${Math.round(shownScore)}/${lvl.target}`, score >= lvl.target ? '#1fe08a' : '#ffd60a', 'right');
     const g = [lvl.goals.gems && `💎 ${Math.min(gemsGot, lvl.goals.gems)}/${lvl.goals.gems}`, lvl.goals.ice && `🧊 ${Math.min(iceGot, lvl.goals.ice)}/${lvl.goals.ice}`].filter(Boolean).join('    ');
     ctx.font = `700 ${Math.round(cs * 0.42)}px Fredoka, system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
     ctx.fillText(g || (streak > 1 ? '' : 'movimientos'), W / 2, by - 24);
   } else {
-    pill(bx, by * 0.15, '👑 ' + best, '#ffd60a', 'left');
+    pill(Math.max(bx, 60), by * 0.15, '👑 ' + best, '#ffd60a', 'left');
     pill(bx + cs * N, by * 0.15, '🔥 ' + dayStreak + (dayStreak === 1 ? ' día' : ' días'), '#ff9f1c', 'right');
   }
   if (streak > 1 && !(lv && (lvl.goals.gems || lvl.goals.ice))) { ctx.font = `700 ${Math.round(cs * 0.42)}px Fredoka, system-ui`; ctx.fillStyle = hex(1 + streak % 7); ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 14; ctx.fillText((fire ? '🔥 ' : '') + 'RACHA x' + streak, W / 2, by - 24); ctx.shadowBlur = 0; }
