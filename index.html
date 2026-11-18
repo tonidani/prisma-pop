@@ -43,7 +43,31 @@ button:active{transform:translateY(4px);box-shadow:none}
 #map.on{display:block}
 .mhead{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:14px;padding:12px 16px;background:rgba(20,8,50,.92);font-size:22px;font-weight:700}
 .mhead button{width:auto;margin:0;padding:8px 14px;font-size:16px}
-.path{display:flex;flex-direction:column;align-items:center;gap:22px;padding:30px 16px 120px}
+#path{position:relative;padding-bottom:80px}
+.world{position:relative;display:flex;flex-direction:column;align-items:center;gap:30px;padding:118px 16px 50px;overflow:hidden}
+.wtitle{position:absolute;top:16px;left:50%;transform:translateX(-50%);margin:0;padding:7px 18px;border-radius:999px;background:rgba(0,0,0,.35);border:2px solid rgba(255,255,255,.25);font-size:17px;white-space:nowrap;z-index:2;text-shadow:0 2px 0 rgba(0,0,0,.4)}
+.deco{position:absolute;pointer-events:none;opacity:.8;filter:drop-shadow(0 4px 6px rgba(0,0,0,.45))}
+#pathSvg{position:absolute;left:0;top:0;pointer-events:none;z-index:1}
+.node{z-index:2}
+.avatar{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);margin-bottom:-10px;pointer-events:none;animation:bob 1.6s ease-in-out infinite}
+@keyframes bob{50%{translate:0 -6px}}
+#cArt svg{display:block;margin:-14px auto 2px;animation:bob 2s ease-in-out infinite}
+#story{position:fixed;inset:0;z-index:9;display:none;align-items:flex-end;justify-content:center;background:rgba(5,2,20,.72);padding:16px 16px 48px}
+#story.on{display:flex;animation:fade .25s}
+.scard{display:flex;align-items:flex-end;gap:10px;max-width:460px;width:100%;animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
+.who{flex:none;animation:bob 1.8s ease-in-out infinite}
+.bubble{flex:1;background:#fff;color:#2a1460;border-radius:22px;padding:14px 16px 12px;position:relative;box-shadow:0 8px 30px rgba(0,0,0,.45);margin-bottom:30px}
+.bubble b{color:#8a5cff;font-size:19px}
+.who.grison+.bubble b{color:#5b606e}
+.bubble p{margin:6px 0 12px;font-size:17px;line-height:1.35;font-weight:500}
+.bubble p b{font-size:inherit}
+.bubble button{margin:0;padding:11px;font-size:17px}
+.bubble:before{content:'';position:absolute;left:-12px;bottom:28px;border:12px solid transparent;border-right-color:#fff;border-left:0}
+#buddy{position:fixed;z-index:4;pointer-events:none;display:none}
+#buddy.jump .b-art{animation:jump .5s}
+@keyframes jump{30%{transform:translateY(-16px) scale(1.1,.9)}60%{transform:translateY(0) scale(.94,1.06)}}
+.b-say{position:absolute;right:100%;top:6px;margin-right:2px;background:#fff;color:#2a1460;font-weight:700;font-size:13px;padding:6px 10px;border-radius:12px 12px 2px 12px;white-space:nowrap;opacity:0;transform:scale(.5);transform-origin:right bottom;transition:.18s;box-shadow:0 4px 12px rgba(0,0,0,.35)}
+.b-say.on{opacity:1;transform:none}
 .node{position:relative;width:66px;height:66px;margin:0;padding:0;border-radius:50%;font-size:24px;background:linear-gradient(#a98bff,#6236e0);box-shadow:0 5px 0 #3a1d99,0 0 18px rgba(160,120,255,.5);flex:none}
 .node.boss{width:84px;height:84px;font-size:28px;background:linear-gradient(#ff8fa3,#d6264a);box-shadow:0 6px 0 #8a0020,0 0 24px rgba(255,80,120,.6)}
 .node.cur{animation:pulse .9s infinite}
@@ -59,19 +83,23 @@ button:active{transform:translateY(4px);box-shadow:none}
 <button id="pause" aria-label="Pausa">⏸</button>
 <div id="bar"></div>
 <div class="ov" id="over"><div class="card">
+  <div id="cArt"></div>
   <h2 id="cTitle"></h2>
   <div class="big" id="cBig"></div>
   <div id="cSub" class="muted"></div>
   <div id="cNear" class="nm"></div>
   <div id="cBtns"></div>
 </div></div>
-<div id="map"><div class="mhead"><button class="b2" id="mapBack">← Menú</button><span>🗺️ Aventura</span></div><div class="path" id="path"></div></div>
+<div id="map"><div class="mhead"><button class="b2" id="mapBack">← Menú</button><span>🗺️ Aventura</span></div><div id="path"></div></div>
+<div id="story"></div>
+<div id="buddy"><div class="b-say"></div><div class="b-art"></div></div>
 <div class="ov" id="ad"><div class="card">
   <h2 id="adTitle">Anuncio</h2>
   <div class="muted">Simulación: aquí va el SDK real (AdMob / Poki / CrazyGames)</div>
   <div class="big" id="adCount">3</div>
 </div></div>
 <script src="core.js"></script>
+<script src="art.js"></script>
 <script>
 'use strict';
 // ---------- storage & analytics ----------
@@ -113,6 +141,7 @@ function newGame() {
   S.games++; newTray();
   log(mode === 'level' ? 'level_start' : 'game_start', { game_index: S.games, best, level: lvl ? lvl.n : 0 });
   armed = null; gameAdBoosts = 0; gameEarned = {}; $bar.classList.remove('nudge'); renderBar();
+  $buddy.style.display = lvl ? 'block' : 'none'; wasDanger = false; buddyMood = ''; if (lvl) buddy('happy', '¡Vamos allá!');
   if (lvl) say(`Nivel ${lvl.n}`, cs * 0.9, lvl.n % 10 ? '#cbb6ff' : '#ff9db0', undefined, 1.6);
   if (dailyGift) { say(`🎁 Regalo diario: +1 ${BOOST[dailyGift].icon} ${BOOST[dailyGift].name}`, cs * 0.5, '#1fe08a', by + cs * 5.2, 2.5); dailyGift = null; }
 }
@@ -253,6 +282,7 @@ function place(i, r, c) {
   }
   checkRecord();
   if (tray.every(t => !t)) newTray();
+  if (mode === 'level') buddyReact(res);
   afterMove();
 }
 // what happens after anything changes the board: win, out of moves, or no space
@@ -403,8 +433,9 @@ $bar.onclick = e => {
 const $over = document.getElementById('over'), $map = document.getElementById('map');
 let isOver = true, cardTimer; // true until a game starts (menu first)
 function hideCard() { clearInterval(cardTimer); $over.classList.remove('on'); }
-function showCard({ title, logo = false, big = '', count, sub = '', near = '', buttons = [] }) {
+function showCard({ title, logo = false, art = '', big = '', count, sub = '', near = '', buttons = [] }) {
   hideCard();
+  document.getElementById('cArt').innerHTML = art;
   const $t = document.getElementById('cTitle'), $b = document.getElementById('cBig'), $btns = document.getElementById('cBtns');
   $t.textContent = title; $t.className = logo ? 'logo' : ''; $b.textContent = big;
   if (count !== undefined) { const t0 = performance.now(); (function k(now) { const p = Math.min(1, (now - t0) / 900); $b.textContent = Math.round(count * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(k); })(t0); }
@@ -447,7 +478,7 @@ function gameOver() {
   if (!revived) offerRewarded('revive');
   log(lv ? 'level_fail' : 'game_over', { level: lv ? lvl.n : 0, reason: 'no_space', score, best, duration_s: (Date.now() - gameStartT) / 1e3 | 0, near_miss: !lv && best && !newBest && score >= best * 0.85 ? 1 : 0, revived: revived ? 1 : 0 });
   showCard({
-    title: '¡Sin espacio!', count: score,
+    title: '¡Sin espacio!', count: score, art: lv ? prismiSVG('sad', 78) : '',
     sub: lv ? goalsHTML(lvl, gemsGot, iceGot, score) : newBest ? '🏆 ¡Nuevo récord!' : '👑 Récord: ' + best,
     near: lv ? nearLevel() : !newBest && best > score ? `¡Te faltaron ${best - score} puntos para tu récord!` : '',
     buttons: endButtons(revived ? [] : [{ label: '▶ Revivir (anuncio)', cls: 'b1', countdown: 5, fn: revive }]),
@@ -472,7 +503,7 @@ function outOfMoves() {
   log('level_fail', { level: lvl.n, reason: 'moves', score, gems: gemsGot, ice: iceGot, plus_used: plusUsed ? 1 : 0 });
   if (!plusUsed) offerRewarded('plus5');
   showCard({
-    title: '¡Sin movimientos!', count: score, sub: goalsHTML(lvl, gemsGot, iceGot, score), near: nearLevel(),
+    title: '¡Sin movimientos!', count: score, art: prismiSVG(plusUsed ? 'sad' : 'worried', 78), sub: goalsHTML(lvl, gemsGot, iceGot, score), near: nearLevel(),
     buttons: endButtons(plusUsed ? [] : [{ label: '▶ +5 movimientos (anuncio)', cls: 'b1', countdown: 6, fn: () => watchRewarded(() => {
       plusUsed = true; movesLeft += 5; isOver = false; say('+5 MOVIMIENTOS', cs * 0.8, '#1fe08a'); flash = 0.3; flashColor = '#1fe08a'; whoosh(0.3, 0.5);
       log('plus_moves', { level: lvl.n }); afterMove();
@@ -483,6 +514,7 @@ function outOfMoves() {
 function levelWon() {
   won = true; isOver = true; drag = null; armed = null; renderBar();
   const left = movesLeft, bonus = left * 40;
+  buddy('wow', '¡Lo logramos! 🎉');
   say('¡OBJETIVO CUMPLIDO!', cs * 0.8, '#1fe08a', undefined, 1.6); confettiRain(150); flash = 0.35; flashColor = '#1fe08a';
   [0, 4, 7, 12, 16].forEach((s, j) => tone(523 * Math.pow(2, s / 12), 0.3, 'triangle', 0.15, j * 0.09)); buzz([60, 40, 60, 40, 150]);
   if (bonus) setTimeout(() => { score += bonus; scorePulse = 1; say(`+${bonus} bonus · ${left} mov.`, cs * 0.6, '#ffd60a', by + cs * 5.2, 1.4); tone(880, 0.2, 'sine', 0.12, 0, 1760); }, 800);
@@ -493,30 +525,86 @@ function victory() {
   if (st > (starsMap[n] || 0)) { starsMap[n] = st; ls('pp_stars', JSON.stringify(starsMap)); }
   if (n >= unlocked) { unlocked = n + 1; ls('pp_level', unlocked); }
   log('level_win', { level: n, score, stars: st, moves_left: movesLeft, plus_used: plusUsed ? 1 : 0, revived: revived ? 1 : 0 });
-  showCard({ title: `¡Nivel ${n} superado!`, big: '⭐'.repeat(st) + '☆'.repeat(3 - st), sub: `Puntuación: ${score}`,
-    buttons: [{ label: `Nivel ${n + 1} ▶`, cls: 'b1', fn: () => withAd(() => startLevel(n + 1)) }, { label: '🗺️ Mapa', cls: 'b3', fn: openMap }] });
+  const card = () => showCard({ title: `¡Nivel ${n} superado!`, art: prismiSVG('wow', 84), big: '⭐'.repeat(st) + '☆'.repeat(3 - st), sub: `Puntuación: ${score}`,
+    buttons: [{ label: `Nivel ${n + 1} ▶`, cls: 'b1', fn: () => withAd(() => (n + 1) % 10 === 1 || (n + 1) % 10 === 0 ? levelIntro(n + 1) : startLevel(n + 1)) }, { label: '🗺️ Mapa', cls: 'b3', fn: openMap }] });
+  n % 10 === 0 ? story('bw' + n, STORY.bossWin(n), card) : card();
+}
+// ---------- in-game buddy: Prismi sits on the board corner and reacts ----------
+const $buddy = document.getElementById('buddy');
+let buddyMood = '', buddyT, wasDanger = false;
+function buddy(mood, msg) {
+  if (mode !== 'level') return;
+  if (mood !== buddyMood) { $buddy.querySelector('.b-art').innerHTML = prismiSVG(mood, 52); buddyMood = mood; }
+  $buddy.classList.remove('jump'); void $buddy.offsetWidth; $buddy.classList.add('jump');
+  const $s = $buddy.querySelector('.b-say');
+  if (!msg) return;
+  $s.textContent = msg; $s.classList.add('on'); clearTimeout(buddyT);
+  buddyT = setTimeout(() => { $s.classList.remove('on'); if (!won) buddy('happy'); }, 1700);
+}
+function buddyReact(res) { // after each move in adventure
+  const danger_ = danger(fillRatio(grid));
+  if (res.gems) buddy('wow', res.gems > 1 ? `¡${res.gems} gemas! 💎` : '¡Una gema! 💎');
+  else if (res.n >= 3 || streak >= 3) buddy('wow', CHEERS[Math.random() * CHEERS.length | 0]);
+  else if (res.ice) buddy('happy', '¡Hielo roto! 🧊');
+  else if (movesLeft === 3) buddy('worried', '¡Solo 3 movimientos!');
+  else if (danger_ && !wasDanger) buddy('worried', '¡Queda poco sitio!');
+  else if (res.n) buddy('happy');
+  wasDanger = danger_;
+}
+// ---------- story: short dialogs, each shown once ----------
+let seenStory = {}; try { seenStory = JSON.parse(ls('pp_story')) || {}; } catch (e) {}
+const $story = document.getElementById('story');
+function story(id, lines, done = () => {}) {
+  if (seenStory[id]) return done();
+  let i = 0;
+  const show = () => {
+    const L = lines[i], g = L.who === 'grison';
+    $story.innerHTML = `<div class="scard"><div class="who ${L.who}">${g ? grisonSVG(L.mood, 116) : prismiSVG(L.mood, 100)}</div><div class="bubble"><b>${g ? 'Grisón' : 'Prismi'}</b><p>${L.text}</p><button class="${g ? 'b2' : 'b1'}">${i < lines.length - 1 ? 'Siguiente ▶' : '¡Vamos!'}</button></div></div>`;
+    tone(g ? 160 : 700, 0.12, g ? 'sawtooth' : 'sine', 0.06, 0, g ? 110 : 1000);
+    $story.querySelector('button').onclick = () => {
+      ensureAudio();
+      if (++i < lines.length) return show();
+      $story.classList.remove('on'); seenStory[id] = 1; ls('pp_story', JSON.stringify(seenStory)); log('story_seen', { id }); done();
+    };
+  };
+  $story.classList.add('on'); show();
 }
 function showMenu() {
   isOver = true; $map.classList.remove('on');
-  showCard({ title: 'Prisma Pop', logo: true, big: '💎', sub: 'Elige modo de juego', buttons: [
+  showCard({ title: 'Prisma Pop', logo: true, art: prismiSVG('happy', 104), sub: 'Elige modo de juego', buttons: [
     { label: `🗺️ Aventura · Nivel ${unlocked}`, cls: 'b1', fn: openMap },
     { label: `♾️ Clásico · Récord ${best}`, cls: 'b2', fn: startClassic }] });
 }
 function openMap() {
   hideCard(); isOver = true;
-  const $p = document.getElementById('path');
-  $p.innerHTML = Array.from({ length: unlocked + 15 }, (_, i) => {
-    const n = i + 1, st = starsMap[n] || 0, lock = n > unlocked, x = Math.round(Math.sin(n * 0.9) * 90);
-    return `<button class="node${n % 10 ? '' : ' boss'}${n === unlocked ? ' cur' : ''}${lock ? ' lock' : ''}" data-n="${n}" style="left:${x}px" ${lock ? 'disabled' : ''} aria-label="Nivel ${n}">${lock ? '🔒' : n}<small>${lock ? '' : '⭐'.repeat(st) + '☆'.repeat(3 - st)}</small></button>`;
+  const $p = document.getElementById('path'), total = Math.ceil((unlocked + 12) / 10) * 10;
+  const node = n => {
+    const st = starsMap[n] || 0, lock = n > unlocked, x = Math.round(Math.sin(n * 0.9) * 90);
+    return `<button class="node${n % 10 ? '' : ' boss'}${n === unlocked ? ' cur' : ''}${lock ? ' lock' : ''}" data-n="${n}" style="left:${x}px" ${lock ? 'disabled' : ''} aria-label="Nivel ${n}">${n === unlocked ? `<div class="avatar">${prismiSVG('happy', 46)}</div>` : ''}${lock ? '🔒' : n % 10 ? n : '👑'}<small>${lock ? '' : '⭐'.repeat(st) + '☆'.repeat(3 - st)}</small></button>`;
+  };
+  // one themed section per world: background, title, scattered decorations, its 10 levels
+  $p.innerHTML = Array.from({ length: total / 10 }, (_, w) => {
+    const W = WORLDS[w % WORLDS.length], R = mulberry32(w * 97 + 3), first = w * 10 + 1;
+    const deco = Array.from({ length: 10 }, () => `<span class="deco" style="left:${(R() * 88).toFixed(1)}%;top:${(8 + R() * 86).toFixed(1)}%;font-size:${24 + R() * 22 | 0}px">${W.deco[R() * W.deco.length | 0]}</span>`).join('');
+    return `<section class="world" style="background:linear-gradient(${W.bg[0]},${W.bg[1]})"><h3 class="wtitle">Mundo ${w + 1} · ${worldName(first)}</h3>${deco}${Array.from({ length: 10 }, (_, k) => node(first + k)).join('')}</section>`;
   }).join('');
   $map.classList.add('on');
+  // dotted trail between levels
+  const pr = $p.getBoundingClientRect(), pts = [...$p.querySelectorAll('.node')].map(b => { const r = b.getBoundingClientRect(); return `${(r.left - pr.left + r.width / 2).toFixed(0)},${(r.top - pr.top + r.height / 2).toFixed(0)}`; });
+  $p.insertAdjacentHTML('afterbegin', `<svg id="pathSvg" width="${pr.width}" height="${$p.scrollHeight}"><polyline points="${pts.join(' ')}" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 17"/></svg>`);
   const cur = $p.querySelector('.cur'); if (cur) cur.scrollIntoView({ block: 'center' });
+  story('intro', STORY.intro);
 }
 const TIPS = { stones: '🪨 La piedra no se rompe: completa la línea con ella dentro. Solo la 💣 la destruye.', gems: '💎 Borra la línea de cada gema para recogerla.', ice: '🧊 Borra la línea del hielo para romperlo (el doble aguanta 2).' };
 const SHAPE_NAMES = { square: '', cross: ' en cruz', corners: ' con esquinas recortadas', hole: ' con agujero', diamond: ' en rombo' };
+// first level of a new world and boss levels get their story beat first
 function levelIntro(n) {
+  const after = () => n % 10 === 0 ? story('b' + n, STORY.boss(n), () => showIntro(n)) : showIntro(n);
+  n % 10 === 1 && n > 1 ? story('w' + worldIdx(n), STORY.world(n), after) : after();
+}
+function showIntro(n) {
   const L = getLevel(n), tips = ['stones', 'gems', 'ice'].filter(k => k === 'stones' ? L.B.g.flat().includes(STONE) : L.goals[k]).map(k => `<div style="margin-top:6px;font-size:14px">${TIPS[k]}</div>`).join('');
-  showCard({ title: `Nivel ${n}${n % 10 ? '' : ' 👑'}`, big: String(L.moves), sub: `movimientos · tablero ${L.size}×${L.size}${SHAPE_NAMES[L.spec.shape]}${L.size < 8 ? ' (¡poco espacio!)' : L.size > 8 ? ' (líneas más largas)' : ''}${goalsHTML(L)}${tips}`,
+  showCard({ title: `Nivel ${n}${n % 10 ? '' : ' 👑'}`, art: n % 10 ? prismiSVG('happy', 70) : grisonSVG('angry', 92), big: String(L.moves), sub: `movimientos · tablero ${L.size}×${L.size}${SHAPE_NAMES[L.spec.shape]}${L.size < 8 ? ' (¡poco espacio!)' : L.size > 8 ? ' (líneas más largas)' : ''}${goalsHTML(L)}${tips}`,
     buttons: [{ label: '▶ Jugar', cls: 'b1', fn: () => startLevel(n) }, { label: 'Volver', fn: () => {} }] });
 }
 document.getElementById('path').onclick = e => { const b = e.target.closest('.node'); if (!b || b.disabled) return; ensureAudio(); tone(600, 0.06, 'sine', 0.1, 0, 900); levelIntro(+b.dataset.n); };
@@ -541,7 +629,8 @@ function resize() {
   DPR = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight;
   cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   by = Math.max(H * 0.15, 90); cs = Math.floor(Math.min(W * 0.9 / N, (H - by - 70) / (N + 4), (H - by - 70) / 12 * 1.15)); bx = (W - cs * N) / 2; trayY = by + cs * N + cs * 0.9;
-  $bar.style.top = (trayY + cs * 3.1) + 'px'; $pause.style.top = Math.max(4, by * 0.15 - 21) + 'px'; $hint.style.top = (trayY + cs * 2.45) + 'px';
+  $bar.style.top = (trayY + cs * 3.1) + 'px'; $pause.style.top = Math.max(4, by * 0.15 - 21) + 'px';
+  $buddy.style.left = Math.min(W - 58, bx + cs * N - 8) + 'px'; $buddy.style.top = (by - 64) + 'px'; // sits on the board's top-right corner $hint.style.top = (trayY + cs * 2.45) + 'px';
   sprites.clear(); buildBoardPath();
 }
 let boardPath = null; // union of playable cells, only for shaped boards
@@ -637,7 +726,8 @@ function frame(now) {
   const fill = fillRatio(grid);
 
   // background
-  const hue = fire ? 300 + Math.sin(T * 2) * 40 : 262 + Math.sin(T * 0.2) * 14;
+  const baseHue = mode === 'level' && lvl ? worldOf(lvl.n).hue : 262; // each adventure world has its own colour
+  const hue = fire ? 300 + Math.sin(T * 2) * 40 : baseHue + Math.sin(T * 0.2) * 14;
   const bg = ctx.createLinearGradient(0, 0, W * 0.3, H);
   bg.addColorStop(0, `hsl(${hue},70%,22%)`); bg.addColorStop(0.55, `hsl(${hue + 25},65%,12%)`); bg.addColorStop(1, `hsl(${hue - 40},70%,8%)`);
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
