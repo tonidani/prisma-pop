@@ -469,10 +469,7 @@ function endButtons(extra) {
 }
 function gameOver() {
   if (isOver || won || tray.some(t => t && fitsAnywhere(grid, t.cells))) return;
-  if (Object.values(boosts).some(v => v > 0)) { // still has boosters: nudge instead of ending
-    if (!$bar.classList.contains('nudge')) { $bar.classList.add('nudge'); say('¡Usa un potenciador!', cs * 0.7, '#ffd60a'); tone(440, 0.2, 'triangle', 0.1, 0, 660); }
-    return;
-  }
+  // no space = game over, even with boosters left: they have to be used before getting stuck
   isOver = true;
   const lv = mode === 'level';
   if (!revived) offerRewarded('revive');
