@@ -63,9 +63,10 @@ function spaceFrame(now) {
   requestAnimationFrame(spaceFrame);
   if (cam.goal) {
     for (let k = 0; k < 3; k++) cam.t[k] += (cam.goal.t[k] - cam.t[k]) * 0.1;
-    cam.dist += (cam.goal.dist - cam.dist) * 0.1; cam.yaw += (cam.goal.yaw - cam.yaw) * 0.06;
-    if (Math.abs(cam.goal.dist - cam.dist) < 0.02 && Math.abs(cam.goal.t[1] - cam.t[1]) < 0.02) cam.goal = null;
-  } else if (!drag3) cam.yaw += 0.0008; // slow idle drift keeps it feeling 3D
+    cam.dist += (cam.goal.dist - cam.dist) * 0.1; cam.yaw += (cam.goal.yaw - cam.yaw) * 0.1;
+    // finish only when position, zoom and angle have all arrived, so the planet ends up dead centre
+    if (Math.abs(cam.goal.dist - cam.dist) < 0.02 && cam.goal.t.every((v, k) => Math.abs(v - cam.t[k]) < 0.01) && Math.abs(cam.goal.yaw - cam.yaw) < 0.002) { cam.t = [...cam.goal.t]; cam.yaw = cam.goal.yaw; cam.goal = null; }
+  }
   const g = sctx, T = now / 1000; g.setTransform(sDPR, 0, 0, sDPR, 0, 0); g.imageSmoothingEnabled = false;
   g.fillStyle = '#07031a'; g.fillRect(0, 0, sW, sH);
   for (const [x, y, z, sz, ph] of STARS) { // sky sphere: rotates with the camera, never moves
@@ -135,10 +136,10 @@ function openMap() {
 }
 
 // input: one finger orbits (x) and travels along the tree (y); two fingers or wheel zoom; a tap picks a planet
-const ptrs = new Map(); let drag3 = false, moved = 0, pinch0 = 0;
+const ptrs = new Map(); let moved = 0, pinch0 = 0;
 const pdist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a[0] - b[0], a[1] - b[1]) || 1; };
 const zoom = f => { cam.goal = null; cam.dist = clamp(cam.dist * f, 4, 60); };
-$space.addEventListener('pointerdown', e => { ensureAudio(); $space.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); drag3 = true; moved = 0; if (ptrs.size === 2) pinch0 = pdist(); });
+$space.addEventListener('pointerdown', e => { ensureAudio(); $space.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; if (ptrs.size === 2) pinch0 = pdist(); });
 $space.addEventListener('pointermove', e => {
   if (!ptrs.has(e.pointerId)) return;
   const [px, py] = ptrs.get(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
@@ -148,7 +149,7 @@ $space.addEventListener('pointermove', e => {
   cam.t[0] *= 0.96; cam.t[2] *= 0.96; // drift back to the trunk while travelling
 });
 const up = e => {
-  if (!ptrs.delete(e.pointerId)) return; drag3 = ptrs.size > 0;
+  if (!ptrs.delete(e.pointerId)) return;
   if (moved >= 8 || ptrs.size) return;
   let best = null, bd = 1e9; // nearest planet under the finger, front ones first
   for (const n of spaceNodes()) { const p = proj(planetPos(n)); if (!p) continue; const R = (routeOf(n) < 0 ? 1.1 : 0.6) * p.k, d = Math.hypot(p.x - e.clientX, p.y - e.clientY); if (d < Math.max(22, R * 1.4) && d - p.d * 0.01 < bd) { bd = d; best = n; } }
